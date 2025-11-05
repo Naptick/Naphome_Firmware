@@ -1,0 +1,3 @@
+Product page: https://sensirion.com/products/catalog/sps30/
+Datasheet: https://sensirion.com/media/documents/AE8EF4B9/65EC3E0F/Sensirion_PM_Sensors_Datasheet_SPS30.pdf
+Hardware integration guide: https://sensirion.com/media/documents/CFB74206/64CD2F89/Sensirion_PM_Sensors_Handling_Manual_SPS30.pdf

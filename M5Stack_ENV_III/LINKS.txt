@@ -1,0 +1,2 @@
+Official docs: https://docs.m5stack.com/en/unit/envIII
+Schematic PDF: https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/schematic/ENV_III_SCH.pdf

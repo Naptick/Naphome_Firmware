@@ -1,0 +1,14 @@
+SCD41 CO2 Sensor Datasheet
+==========================
+
+Datasheet Location:
+- Manufacturer: Sensirion
+- Product: SCD41
+- DigiKey Part: 1649-SCD41-D-R2TR-ND
+
+To download datasheet:
+1. Visit: https://www.digikey.com/product-detail/en/1649-SCD41-D-R2TR-ND
+2. Click "View Datasheet" link
+3. Or visit Sensirion website: https://sensirion.com/products/product-catalog/SCD41
+
+Note: Sensirion datasheets are typically available on their product page.

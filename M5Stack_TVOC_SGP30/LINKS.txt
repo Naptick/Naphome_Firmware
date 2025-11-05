@@ -1,0 +1,2 @@
+Official docs: https://docs.m5stack.com/en/unit/tvoc
+Schematic PDF: https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/schematic/TVOC_Unit_SCH.pdf

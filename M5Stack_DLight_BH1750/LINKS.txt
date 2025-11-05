@@ -1,0 +1,2 @@
+Official docs: https://docs.m5stack.com/en/unit/dlight
+Schematic PDF: https://m5stack.oss-cn-shenzhen.aliyuncs.com/resource/docs/schematic/DLight_Unit_SCH.pdf

@@ -1,0 +1,16 @@
+ICS-43434 I2S MEMS Microphone Datasheet
+========================================
+
+Component Information:
+- Chip: ICS-43434
+- Manufacturer: Invensense (now TDK InvenSense)
+- Available on: Adafruit I2S MEMS Microphone Breakout
+- DigiKey Part: 1528-6049-ND
+
+Datasheet Location:
+- Adafruit Product Page: https://www.adafruit.com/product/4346
+- Adafruit Learning Guide: https://learn.adafruit.com/adafruit-i2s-mems-microphone-breakout
+- Invensense Product Page: https://www.invensense.com/products/ics-43434/
+
+Note: The ICS-43434 datasheet may require registration with TDK InvenSense.
+The Adafruit breakout board documentation provides sufficient information for integration.

@@ -1,0 +1,3 @@
+Product: https://www.adafruit.com/product/2857
+Guide: https://learn.adafruit.com/adafruit-sht31-d-temperature-and-humidity-sensor-breakout
+Schematic/Design files: https://github.com/adafruit/Adafruit_SHT31

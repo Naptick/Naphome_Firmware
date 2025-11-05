@@ -1,0 +1,3 @@
+Product page: https://sensirion.com/products/catalog/sgp40/
+Datasheet: https://sensirion.com/media/documents/6F29AB84/64F4C541/Sensirion_Gas_Sensors_SGP40_Datasheet.pdf
+Typical breakout schematic: https://www.adafruit.com/product/4829
