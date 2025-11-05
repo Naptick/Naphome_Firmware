@@ -1,0 +1,3 @@
+Product: https://www.adafruit.com/product/3709
+Guide: https://learn.adafruit.com/adafruit-sgp30-gas-tvoc-eco2-mox-sensor
+Schematic/Design files: https://github.com/adafruit/Adafruit_SGP30

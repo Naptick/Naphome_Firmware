@@ -1,0 +1,3 @@
+Product: https://www.sparkfun.com/products/15112
+Hookup Guide: https://learn.sparkfun.com/tutorials/sparkfun-co2-meter-co2-sensor-scd30-hookup-guide
+Schematic/Board files: https://github.com/sparkfun/Qwiic_CO2_Sensor_SCD30

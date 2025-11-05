@@ -1,0 +1,2 @@
+Datasheet: https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf
+Integration guide: https://learn.adafruit.com/adafruit-neopixel-uberguide/overview

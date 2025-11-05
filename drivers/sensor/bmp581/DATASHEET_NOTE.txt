@@ -1,0 +1,14 @@
+BMP581 Barometric Pressure Sensor Datasheet
+===========================================
+
+Datasheet Location:
+- Manufacturer: Bosch Sensortec
+- Product: BMP581
+- SparkFun Part: 20170 (Qwiic version)
+
+To download datasheet:
+1. Visit SparkFun product page: https://www.sparkfun.com/products/20170
+2. Click "Documents" tab for datasheet
+3. Or visit Bosch website: https://www.bosch-sensortec.com/products/environmental-sensors/pressure-sensors/bmp581/
+
+Note: BMP581 datasheet is available on Bosch Sensortec website.

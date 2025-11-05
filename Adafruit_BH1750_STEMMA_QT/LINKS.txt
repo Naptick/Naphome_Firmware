@@ -1,0 +1,3 @@
+Product: https://www.adafruit.com/product/4681
+Guide: https://learn.adafruit.com/adafruit-bh1750-ambient-light-sensor
+Schematic/Design files: https://github.com/adafruit/Adafruit_BH1750
