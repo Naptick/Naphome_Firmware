@@ -17,9 +17,10 @@
  * @brief SHT45 device handle
  */
 typedef struct {
-    i2c_master_bus_handle_t i2c_bus;  ///< I2C bus handle
-    uint8_t device_address;           ///< I2C device address (default 0x44)
-    bool initialized;                  ///< Initialization status
+    i2c_master_bus_handle_t i2c_bus;      ///< I2C bus handle
+    i2c_master_dev_handle_t i2c_dev;      ///< I2C device handle
+    uint8_t device_address;               ///< I2C device address (default 0x44)
+    bool initialized;                      ///< Initialization status
 } sht45_handle_t;
 
 /**
