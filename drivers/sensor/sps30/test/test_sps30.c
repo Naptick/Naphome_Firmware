@@ -143,6 +143,15 @@ void test_sps30_read_pm25_not_initialized(void)
 }
 
 /**
+ * @test Test SPS30 read_pm25 with null pointer
+ */
+void test_sps30_read_pm25_null_pointer(void)
+{
+    bool result = sps30_read_pm25(&test_handle, NULL);
+    TEST_ASSERT_FALSE(result);
+}
+
+/**
  * @test Test SPS30 deinit
  */
 void test_sps30_deinit(void)
@@ -207,6 +216,7 @@ void app_main(void)
     RUN_TEST(test_sps30_is_initialized);
     RUN_TEST(test_sps30_is_measuring);
     RUN_TEST(test_sps30_read_pm25_not_initialized);
+    RUN_TEST(test_sps30_read_pm25_null_pointer);
     RUN_TEST(test_sps30_deinit);
     RUN_TEST(test_sps30_deinit_null_handle);
     RUN_TEST(test_sps30_data_structure);

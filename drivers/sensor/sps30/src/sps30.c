@@ -442,6 +442,11 @@ bool sps30_read(sps30_handle_t *handle, sps30_data_t *data)
  */
 bool sps30_read_pm25(sps30_handle_t *handle, float *pm2_5)
 {
+    if (pm2_5 == NULL) {
+        ESP_LOGE(TAG, "Invalid pm2_5 parameter");
+        return false;
+    }
+    
     sps30_data_t data;
     if (sps30_read(handle, &data)) {
         *pm2_5 = data.pm2_5;
