@@ -388,5 +388,6 @@ void test_bmp581_read_out_of_range(void)
     bool result = bmp581_read(&test_handle, &data);
 
     // Should detect invalid data
+    TEST_ASSERT_FALSE(result);
     TEST_ASSERT_FALSE(data.valid);
 }
