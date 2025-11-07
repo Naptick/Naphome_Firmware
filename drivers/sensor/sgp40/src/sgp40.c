@@ -101,7 +101,8 @@ bool sgp40_init(sgp40_handle_t *handle, i2c_master_bus_handle_t i2c_bus, uint8_t
         SGP40_CMD_SOFT_RESET & 0xFF
     };
     
-    esp_err_t ret = i2c_master_transmit(handle->i2c_bus, handle->device_address, cmd, 2, -1);
+    esp_err_t ret = i2c_master_transmit_receive(handle->i2c_bus, handle->device_address, 
+                                                cmd, 2, NULL, 0, -1);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "Soft reset command failed: %s", esp_err_to_name(ret));
     }
@@ -126,7 +127,8 @@ void sgp40_deinit(sgp40_handle_t *handle)
             (SGP40_CMD_HEATER_OFF >> 8) & 0xFF,
             SGP40_CMD_HEATER_OFF & 0xFF
         };
-        i2c_master_transmit(handle->i2c_bus, handle->device_address, cmd, 2, -1);
+        i2c_master_transmit_receive(handle->i2c_bus, handle->device_address, 
+                                    cmd, 2, NULL, 0, -1);
         
         handle->initialized = false;
         ESP_LOGI(TAG, "SGP40 deinitialized");
@@ -164,7 +166,8 @@ bool sgp40_read_compensated(sgp40_handle_t *handle, sgp40_data_t *data,
     cmd[7] = sgp40_calculate_crc(&cmd[5], 2);
 
     // Send measurement command
-    esp_err_t ret = i2c_master_transmit(handle->i2c_bus, handle->device_address, cmd, 8, -1);
+    esp_err_t ret = i2c_master_transmit_receive(handle->i2c_bus, handle->device_address, 
+                                                cmd, 8, NULL, 0, -1);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "I2C transmit failed: %s", esp_err_to_name(ret));
         data->valid = false;
@@ -237,7 +240,8 @@ bool sgp40_self_test(sgp40_handle_t *handle)
         SGP40_CMD_SELF_TEST & 0xFF
     };
     
-    esp_err_t ret = i2c_master_transmit(handle->i2c_bus, handle->device_address, cmd, 2, -1);
+    esp_err_t ret = i2c_master_transmit_receive(handle->i2c_bus, handle->device_address, 
+                                                cmd, 2, NULL, 0, -1);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Self-test command failed: %s", esp_err_to_name(ret));
         return false;
