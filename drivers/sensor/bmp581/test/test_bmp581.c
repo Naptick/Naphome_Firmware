@@ -6,6 +6,7 @@
  */
 
 #include <unity.h>
+#include <string.h>
 #include "bmp581.h"
 #include "mock_i2c_master.h"  // Mock for I2C operations
 
