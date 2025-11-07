@@ -152,7 +152,7 @@ void test_scd41_read_success(void)
     // Mock receive measurement data
     // CO2: 800 ppm (0x0320), Temp: 25°C, Humidity: 50% RH
     uint8_t rx_data[9] = {
-        0x03, 0x20, 0xB2,  // CO2: 800 ppm + CRC
+        0x03, 0x20, 0x2A,  // CO2: 800 ppm + CRC
         0x66, 0x66, 0x93,  // Temperature: ~25°C + CRC
         0x80, 0x00, 0xA2   // Humidity: ~50% RH + CRC
     };
@@ -226,7 +226,7 @@ void test_scd41_read_co2_success(void)
     i2c_master_transmit_IgnoreArg_write_buffer();
 
     uint8_t rx_data[9] = {
-        0x03, 0x20, 0xB2,  // CO2: 800 ppm
+        0x03, 0x20, 0x2A,  // CO2: 800 ppm
         0x66, 0x66, 0x93,  // Temperature
         0x80, 0x00, 0xA2   // Humidity
     };
@@ -309,7 +309,7 @@ void test_scd41_self_test_failure(void)
     i2c_master_transmit_IgnoreArg_write_buffer();
 
     // Mock self-test result (non-zero = fail)
-    uint8_t result_data[3] = {0x00, 0x01, 0x00};  // Fail + CRC
+    uint8_t result_data[3] = {0x00, 0x01, 0xB0};  // Fail + CRC
     i2c_master_receive_ExpectAndReturn(
         mock_i2c_bus, 0x62, NULL, 3, -1, ESP_OK
     );
