@@ -21,9 +21,8 @@ static const char *TAG = "bmp581";
 #define BMP581_REG_CMD          0x7E
 #define BMP581_REG_PRESS_DATA   0x1D  // Pressure data (3 bytes)
 #define BMP581_REG_TEMP_DATA    0x20  // Temperature data (3 bytes)
-#define BMP581_REG_OSR_CONFIG   0x36
-#define BMP581_REG_ODR_CONFIG   0x37
-#define BMP581_REG_PWR_CTRL     0x36  // Power control (different bits in OSR_CONFIG)
+#define BMP581_REG_OSR_CONFIG   0x36  // Oversampling and power control
+#define BMP581_REG_ODR_CONFIG   0x37  // Output data rate configuration
 
 // BMP581 commands
 #define BMP581_CMD_SOFT_RESET   0xB6
