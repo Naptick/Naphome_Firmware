@@ -1,0 +1,42 @@
+ES8311 address: CE pin low - 0x18, CE pin high - 0x19
+
+3.3V
+
+3.3V 3.3V
+
+ F 1
+U.7KQ
+
+1
+Z1005U102TFBO1
+
+33v/ HB
+0a
+C8 coGND |||
+10uF | 100nF
+ASDOUT 7
+—- = LRCK 8
+GND GND DSDIN 9
+10 331
+= ES8311
+GND cizcis
+22pF| 22pF
+GND GND GND
+SEK
+OUIN 00
+5 3.3V
+at E
+1 lin 02
+8 C18 C19 C20 C21
+1.0uF | 100nF | 22uF | 22uF
+1.0uF NS4150B
+= GND GND GND GND
+GND
+SPK+
+00
+| 100nF
+5V
+100nF
+== _- = "_ PI4IOE5V6408ZTAEX = Atom_4P@2.54 Atom. 5P@2.54
+— GND GND GND
+

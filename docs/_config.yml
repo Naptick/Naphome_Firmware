@@ -1,0 +1,45 @@
+# GitHub Pages Jekyll configuration for Naphome Firmware Documentation
+
+title: Naphome Firmware Documentation
+description: Documentation for Naphome Phase 0.9 Firmware - ESP32-S3 IoT and Matter integration
+theme: jekyll-theme-minimal
+
+# Navigation
+header_pages:
+  - index.md
+  - aws_iot_interface.md
+  - matter_interface.md
+  - specifications.md
+  - naphome_voice_assistant.md
+  - i2s_farfield_analysis.md
+
+# Markdown settings
+markdown: kramdown
+kramdown:
+  syntax_highlighter: rouge
+  input: GFM
+  hard_wrap: false
+
+# Exclude from processing
+exclude:
+  - README.md
+  - iot_matter_doc_assessment.md  # Internal assessment document
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Site settings
+# Update baseurl to match your repository name
+# If repo is "Naphome_Firmware", baseurl should be "/Naphome_Firmware"
+# If repo is "Naphome-Firmware", baseurl should be "/Naphome-Firmware"
+url: "https://naphome.github.io"
+baseurl: "/Naphome_Firmware"  # Repository name from GitHub
