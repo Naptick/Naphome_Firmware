@@ -1,0 +1,19 @@
+2
+sch | |
+SDA___2
+
+| 2
+
+5V 2 3
+Cc
+
+Atom_4P@2.54
+
+Jl 3.3V
+
+rere
+
+ABWNe
+
+Atom_5P@2.54
+
