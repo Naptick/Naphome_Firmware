@@ -30,10 +30,19 @@ telemetry, and receives cloud-originated actions.
    somnus_mqtt_start(&cfg);
    ```
 
-4. **Publish telemetry**:
+4. **Initialize sensor manager** (automatic publishing enabled):
+   ```c
+   sensor_integration_init();
+   sensor_integration_start();
+   // Sensor data will now be published automatically every 2 seconds!
+   ```
+
+5. **Optional: Manual telemetry publishing**:
    ```c
    somnus_mqtt_publish_telemetry(json_payload);
    ```
+
+> **Key Feature**: Sensor data is published automatically every 2 seconds (configurable) - no additional code needed! See [Sensor Data Publishing](#sensor-data-publishing) for details.
 
 See [Usage Examples](#usage-examples) and [Testing & Troubleshooting](#testing--troubleshooting) for details.
 
@@ -180,9 +189,65 @@ The wrapper invokes `provision_aws_thing.py`, stores the artifacts under `compon
 
 You can override the subscription topic or QoS via menuconfig or by supplying a custom handler in `somnus_mqtt_start`.
 
+## Sensor Data Publishing
+
+### Automatic Publishing Feature
+
+The sensor manager **automatically publishes sensor data to MQTT** at a configurable interval. This is a key feature for real-time app monitoring and requires **no additional code** - simply initialize and start the sensor manager.
+
+**Key Benefits:**
+- ✅ **Zero configuration** - Works automatically once sensor manager is started
+- ✅ **Real-time updates** - Default 2-second interval for responsive monitoring
+- ✅ **Configurable frequency** - Adjust from 1 second to 10 minutes
+- ✅ **Complete sensor data** - All available sensors included in each message
+- ✅ **JSON Schema validation** - Payloads conform to [mqtt_payload_schema.json](mqtt_payload_schema.json)
+
+**Default Behavior:**
+- Publish interval: **2 seconds (2000ms)**
+- Topic: `device/telemetry/{DEVICE_ID}`
+- QoS: 1 (at least once delivery)
+- Format: JSON with device ID, timestamp, and sensor data
+
+**Configuration:**
+```bash
+# Via menuconfig
+Component config → Sensor Manager → Sensor telemetry publish interval (ms)
+
+# Via sdkconfig.defaults
+CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS=2000
+```
+
+**Usage:**
+```c
+// Initialize sensor integration
+sensor_integration_init();
+
+// Start sensor integration - automatic MQTT publishing begins
+sensor_integration_start();
+
+// Sensor data is now published automatically every 2 seconds!
+// No additional code needed.
+```
+
+For detailed payload format and sensor data structure, see [Telemetry Payload Format](#telemetry) below.
+
 ## Payload Formats
 
+All MQTT payloads use JSON format. JSON schemas are available for validation:
+- **Telemetry Schema**: [mqtt_payload_schema.json](mqtt_payload_schema.json) - Validates sensor telemetry payloads
+- **Command Schema**: [mqtt_command_schema.json](mqtt_command_schema.json) - Validates command payloads
+
 ### Telemetry
+
+The sensor manager **automatically publishes sensor data to MQTT** at a configurable interval for app monitoring. By default, sensor telemetry is published every **2 seconds** (2000ms) to provide responsive updates for mobile and web applications.
+
+> **Note**: This is a key feature for real-time monitoring. Sensor data is published automatically without requiring any additional code - simply initialize and start the sensor manager.
+
+**Configuration:**
+- Default publish interval: **2000ms (2 seconds)**
+- Configurable via `CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS` in menuconfig
+- Range: 1000ms (1 second) to 600000ms (10 minutes)
+- Location: Component config → Sensor Manager → Sensor telemetry publish interval (ms)
 
 The sensor manager creates JSON documents with a device ID, timestamp, and sensor blocks. Example:
 
@@ -190,14 +255,39 @@ The sensor manager creates JSON documents with a device ID, timestamp, and senso
 {
   "deviceId": "SOMNUS_112233445566",
   "timestamp_ms": 1721165305123,
-  "environment": {
+  "sht45": {
     "temperature_c": 24.1,
-    "humidity_pct": 48.3
+    "humidity_rh": 48.3,
+    "synthetic": false
+  },
+  "sgp40": {
+    "voc_index": 125,
+    "voc_ticks": 1250,
+    "synthetic": false
+  },
+  "scd40": {
+    "co2_ppm": 450.0,
+    "temperature_c": 24.0,
+    "humidity_rh": 48.0,
+    "synthetic": false
+  },
+  "vcnl4040": {
+    "ambient_lux": 200,
+    "proximity": 0,
+    "synthetic": false
+  },
+  "ec10": {
+    "pm1_0_ug_m3": 10,
+    "pm2_5_ug_m3": 15,
+    "pm10_ug_m3": 22,
+    "synthetic": false
   }
 }
 ```
 
-Call `somnus_mqtt_publish_telemetry()` with the serialized JSON.
+The sensor manager automatically publishes this telemetry via `somnus_mqtt_publish_telemetry()` at the configured interval. You can also manually publish telemetry by calling `somnus_mqtt_publish_telemetry()` with a serialized JSON payload.
+
+**JSON Schema Validation**: The telemetry payload conforms to the [JSON Schema](mqtt_payload_schema.json) which can be used for validation in applications consuming the MQTT data.
 
 ### Logs
 
@@ -206,6 +296,8 @@ Use `somnus_mqtt_publish_log(level, message)` to emit structured log events. The
 ### Actions
 
 Incoming MQTT messages are parsed by `somnus_mqtt`. When a payload contains an `"Action"` key or a routine list, the raw JSON string is passed to the optional `action_cb` configured in `somnus_mqtt_start`. Handlers should parse or dispatch the command to the appropriate subsystem.
+
+**JSON Schema Validation**: Command payloads conform to the [JSON Schema](mqtt_command_schema.json) which defines valid action types and payload structures.
 
 Example action payload:
 ```json
@@ -216,6 +308,14 @@ Example action payload:
   }
 }
 ```
+
+Valid action types (see schema for complete list):
+- `SetVolume` - Adjust audio volume
+- `SetLED` - Control RGB lighting
+- `PlayAudio` - Play audio file
+- `StopAudio` - Stop audio playback
+- `SetRoutine` - Configure device routines
+- `Test` - Test command
 
 ## Usage Examples
 
@@ -378,17 +478,25 @@ Call `somnus_mqtt_stop()` to:
 
 ## Integration with Sensor Manager
 
-The `sensor_manager` can publish telemetry to both AWS IoT and Matter simultaneously:
+The `sensor_manager` automatically publishes sensor telemetry to AWS IoT MQTT at a configurable interval (default: 2 seconds). It can also publish to Matter simultaneously:
+
+**Automatic MQTT Publishing:**
+- Sensor data is automatically published to the telemetry topic (`device/telemetry/{DEVICE_ID}`) at the configured interval
+- No additional setup required - just initialize and start the sensor manager
+- The publish interval is controlled by `CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS` (default: 2000ms)
+
+**Observer Pattern:**
+The sensor manager also supports an observer pattern for additional consumers:
 
 ```c
-// Set observer that publishes to AWS IoT
+// Set observer that publishes to AWS IoT (optional - automatic publishing already enabled)
 sensor_manager_set_observer(sensor_to_mqtt_observer, NULL);
 
 // Matter bridge also registers as observer when enabled
 // Both observers receive the same sensor snapshots
 ```
 
-The observer pattern allows multiple consumers (AWS IoT, Matter, logging, etc.) to receive sensor updates without coupling.
+The observer pattern allows multiple consumers (AWS IoT, Matter, logging, etc.) to receive sensor updates without coupling. Note that MQTT publishing happens automatically even without an observer callback.
 
 ## Testing & Troubleshooting
 

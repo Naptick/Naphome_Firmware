@@ -30,7 +30,7 @@ This document captures high-level requirements for the Naphome Phase 0.9 firmwar
 ### 2.3 Sensors
 - `sensor_manager` supports at least eight logical sensors with JSON sample callbacks.
 - Sensors provide temperature, humidity, VOC, CO₂, particulate, and ambient light metrics.
-- Sampling interval configurable (`CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS`; default 10 s).
+- Sensor data automatically published to MQTT at configurable interval (`CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS`; default 2 s for app monitoring).
 - Sensor data simultaneously published to MQTT and bridged to Matter observers.
 
 ### 2.4 Audio Subsystem

@@ -8,6 +8,7 @@ Welcome to the Naphome firmware documentation space. Use this site to find guide
 
 - **AWS IoT**: Connect to AWS IoT Core for cloud telemetry and remote control
   - See [AWS IoT & Somnus MQTT Interface](aws_iot_interface.md) for setup, provisioning, and usage
+  - **Automatic sensor data publishing** every 2 seconds for real-time app monitoring
   - Requires ESP-IDF v5.0+, AWS IoT Device SDK v3.0.0+
   
 - **Matter**: Expose sensors to Matter fabric for Home automation
@@ -26,8 +27,10 @@ Welcome to the Naphome firmware documentation space. Use this site to find guide
 
 Complete guide to AWS IoT Core integration:
 - **Architecture**: Three-layer design (SDK → Wrapper → Application)
+- **Automatic Sensor Publishing**: Sensor data published to MQTT every 2 seconds (configurable)
 - **Configuration**: All Kconfig options with defaults and purposes
 - **Provisioning**: Certificate management and Thing setup scripts
+- **Payload Formats**: JSON schemas for telemetry, logs, and commands
 - **Usage Examples**: Complete code examples with error handling
 - **Troubleshooting**: Common issues and solutions
 - **Integration**: Working alongside Matter bridge and sensor_manager
@@ -47,6 +50,12 @@ Complete guide to Matter integration:
 - [Firmware Specification](specifications.md) — high-level requirements for sensors, voice, media, and connectivity features
 - [Voice Assistant](naphome_voice_assistant.md) — Korvo-1 voice assistant implementation
 - [I2S Farfield Analysis](i2s_farfield_analysis.md) — microphone array analysis
+
+## JSON Schemas
+
+MQTT payload schemas for validation and integration:
+- [Telemetry Payload Schema](mqtt_payload_schema.json) — JSON schema for sensor telemetry messages
+- [Command Payload Schema](mqtt_command_schema.json) — JSON schema for device commands
 
 ## Publishing
 
