@@ -1,0 +1,21 @@
+{
+  "name": "mock-somnus-ble",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Somnus BLE peripheral for exercising the mobile onboarding app.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "ble",
+    "somnus",
+    "naphome",
+    "mock"
+  ],
+  "author": "",
+  "license": "Proprietary",
+  "dependencies": {
+    "@abandonware/bleno": "^0.6.2"
+  }
+}

@@ -1,0 +1,113 @@
+## Firmware Roadmap
+
+### Completed ✅
+- [x] Create ESP-IDF driver skeletons for `scd40`, `vcnl4040`, `sgp40`, `ec10`, and `korvo1`
+- [x] Add Unity-based unit tests for each driver
+- [x] Integrate new drivers and tests into CMake build system
+- [x] Draft firmware specifications (`docs/specifications.md`)
+- [x] Document Matter bridge and AWS IoT interfaces
+- [x] **Sensor Integration**: Real-time sensor sampling (SHT45, SGP40, SCD40, VCNL4040, EC10) with 1Hz sampling rate
+  - [x] Synthetic data fallback when sensors unavailable
+  - [x] I2C bus management (GPIO 44/43 for sensors, GPIO 1/2 for audio codec)
+  - [x] Sensor data published to Matter bridge and AWS IoT
+- [x] **AWS IoT Integration**: Full telemetry and MQTT connectivity
+  - [x] `aws_iot_bridge` component for metrics collection
+  - [x] `somnus_mqtt` service for AWS IoT Core connection
+  - [x] LED status indicator for AWS IoT connection state
+  - [x] Telemetry publishing (sensor data, voice pipeline events)
+- [x] **Spotify Integration**: Music streaming support
+  - [x] `spotify_client` for authentication and API calls
+  - [x] `spotify_player` for playback control
+  - [x] Matter bridge integration for device control
+  - [x] LED status indicator for Spotify state
+- [x] **Voice-to-Voice Pipeline**: Complete STT-LLM-TTS integration
+  - [x] Gemini AI integration (STT, LLM, TTS) with batch processing
+  - [x] Voice pipeline with AFE (AEC, BSS/NS, VAD)
+  - [x] WakeNet9l parallel local control ("hi esp" wake word)
+  - [x] Audio capture and playback via ES8388 codec
+  - [x] LED state management (idle, listening, thinking, speaking)
+- [x] **LED Controller**: Advanced lighting system
+  - [x] Sunrise/sunset cycle animation (smooth day/night transitions)
+  - [x] State-based LED colors (idle, listening, thinking, speaking, error)
+  - [x] Status LEDs for WiFi, AWS IoT, Spotify, Wake Word
+  - [x] WS2812B LED strip support (12 LEDs in circular pattern)
+- [x] **Web Dashboard**: Real-time monitoring and control
+  - [x] Serial port monitoring with live log streaming
+  - [x] Sensor readings display (Temperature, Humidity, VOC, CO2, Lux, Proximity, PM2.5)
+  - [x] I2C bus scan results visualization
+  - [x] AI provider status (Gemini/OpenAI) with connection state
+  - [x] WiFi, AWS IoT, Spotify status indicators
+  - [x] System statistics (errors, wake events, WiFi connects)
+  - [x] Filterable log viewer with syntax highlighting
+
+### Atom Echo Rules Demo Feature Checklist
+- [x] Sensors (I2C scan confirms devices on internal/Atom/Port A buses)
+- [x] AWS IoT connectivity (Somnus MQTT gated on Wi-Fi; BLE onboarding unlocks runtime connect)
+- [x] Spotify integration (demo service logs playback actions; ready for cspot drop-in)
+- [x] Gemini STT / LLM / TTS pipeline (stubbed pipeline runs canned prompt for end-to-end tests)
+
+### In Progress 🚧
+- [x] **Certificate Loading Diagnostics**: Enhanced error handling and logging for SPIFFS certificate discovery
+  - [x] Added errno and strerror reporting for filesystem errors
+  - [x] Added directory and file existence checks before access
+  - [x] Improved fallback messaging for embedded certificates
+  - [x] Created documentation for certificate diagnostics
+- [ ] **Sensor Calibration**: Fine-tune sensor readings and validate accuracy
+- [ ] **Matter Bridge**: Complete endpoint mapping and device control
+- [ ] **Somnus MQTT**: Action handlers for schedules and remote device control
+- [ ] **OTA Updates**: ESP-IDF OTA / AWS IoT Jobs integration
+  - [ ] Implement ESP-IDF OTA component integration
+  - [ ] Set up OTA partition table (ota_0, ota_1)
+  - [ ] Create OTA update service component
+  - [ ] Integrate AWS IoT Jobs for remote firmware updates
+  - [ ] Add firmware version checking and rollback capability
+  - [ ] Implement secure OTA with signature verification
+  - [ ] Add OTA status reporting to dashboard
+  - [ ] Test OTA update flow end-to-end
+- [ ] **Voice Pipeline Optimization**: Improve latency and accuracy
+  - [ ] Optimize Gemini batch STT processing time
+  - [ ] Reduce TTS generation latency
+  - [ ] Improve VAD sensitivity and false positive rate
+- [ ] **LED Animations**: Additional scene presets and effects
+  - [ ] **Sound-reactive LEDs**: Real-time audio visualization
+    - [ ] Analyze audio input (I2S microphone or playback audio) for frequency/amplitude
+    - [ ] Map audio features (bass, mid, treble, volume) to LED colors and patterns
+    - [ ] Implement FFT or similar frequency analysis for visual effects
+    - [ ] Create reactive patterns (pulse, spectrum analyzer, beat detection)
+    - [ ] Integrate with existing LED controller and sunrise/sunset cycle
+  - [ ] Music-reactive LED patterns
+  - [ ] Customizable color themes
+  - [ ] Scene transitions
+- [ ] **Driver Migration**: Upgrade deprecated RMT and I2S drivers to new APIs
+  - [ ] Migrate `led_strip` from `driver/rmt.h` to `driver/rmt_tx.h`
+  - [ ] Migrate `audio_player` from `driver/i2s.h` to `driver/i2s_std.h`
+  - [ ] Test LED and audio functionality after migration
+- [ ] **NimBLE Notification Implementation**: Fix BLE notification functionality
+  - [ ] Implement proper NimBLE GATT server notification API
+  - [ ] Replace temporary notification workaround with `ble_gatts_chr_updated` or correct API
+  - [ ] Test BLE notifications with mobile app
+  - [ ] Ensure chunked message delivery works correctly
+
+### Backlog 📋
+- [ ] **Testing & Validation**
+  - [ ] Automated tests for Matter bridge observer path (unit + integration)
+  - [ ] Sensor data validation with known reference values
+  - [ ] Voice pipeline end-to-end testing
+  - [ ] Example telemetry datasets for QA validation
+- [ ] **Documentation**
+  - [ ] BLE onboarding workflow documentation
+  - [ ] Voice pipeline architecture deep dive
+  - [ ] Sensor calibration guide
+  - [ ] Dashboard setup and usage guide
+- [ ] **Performance & Optimization**
+  - [ ] Power optimization for continuous sensor sampling
+  - [ ] Memory optimization for voice pipeline buffers
+  - [ ] Network optimization for AWS IoT telemetry
+- [ ] **Features**
+  - [ ] Multiple wake word models support
+  - [ ] Voice command history and replay
+  - [ ] Custom voice assistant personality configuration
+  - [ ] Multi-room audio synchronization
+  - [ ] Advanced Spotify features (playlists, recommendations)
+  - [ ] Sensor data logging and analytics
+  - [ ] Remote firmware updates via AWS IoT Jobs

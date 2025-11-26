@@ -1,0 +1,9 @@
+menu "OpenWakeWord Demo Configuration"
+
+    config OPENWAKEWORD_DEMO_ENABLE
+        bool "Enable OpenWakeWord demo"
+        default y
+        help
+            Enable the OpenWakeWord demonstration application.
+
+endmenu

@@ -1,0 +1,49 @@
+menu "Naphome Matter Bridge"
+
+config NAPHOME_MATTER_BRIDGE_ENABLE
+    bool "Enable Matter bridge for sensor telemetry"
+    default n
+    help
+        When enabled the firmware exposes collected sensor telemetry via the
+        Matter application layer so that controllers on the fabric can observe
+        state changes through standard clusters.
+
+config NAPHOME_MATTER_BRIDGE_MAX_SENSORS
+    int "Maximum number of bridged sensors"
+    depends on NAPHOME_MATTER_BRIDGE_ENABLE
+    default 8
+    range 1 32
+    help
+        Upper bound for the number of logical sensors that can be exported via
+        the Matter bridge component.
+
+config NAPHOME_MATTER_BRIDGE_SENSOR_NAME_MAX_LEN
+    int "Maximum sensor name length"
+    depends on NAPHOME_MATTER_BRIDGE_ENABLE
+    default 32
+    range 8 96
+    help
+        Sensor identifiers are copied into a static registry. Increase if your
+        sensor names exceed the default limit.
+
+config NAPHOME_MATTER_BRIDGE_ENDPOINT_LABEL_MAX_LEN
+    int "Maximum endpoint label length"
+    depends on NAPHOME_MATTER_BRIDGE_ENABLE
+    default 32
+    range 8 64
+    help
+        Friendly labels assigned to bridged endpoints are truncated to this
+        length.
+
+config NAPHOME_MATTER_BRIDGE_USE_ESPMATTER
+    bool "Link against esp-matter and expose native Matter endpoints"
+    depends on NAPHOME_MATTER_BRIDGE_ENABLE
+    default n
+    help
+        Enable this option when building with the Espressif esp-matter
+        component. When selected the bridge uses esp-matter APIs to create
+        dynamic endpoints and update clusters. Leave disabled to build a stub
+        bridge that logs state changes without interacting with the Matter
+        stack (useful for bring-up and CI).
+
+endmenu

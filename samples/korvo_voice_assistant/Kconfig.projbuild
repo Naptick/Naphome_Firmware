@@ -1,0 +1,167 @@
+menu "Korvo Voice Assistant"
+
+config KVA_WIFI_SSID
+    string "Wi-Fi SSID"
+    help
+        Station SSID used by the assistant before it can reach OpenAI, Spotify, and AWS IoT.
+
+config KVA_WIFI_PASSWORD
+    string "Wi-Fi Password"
+    default ""
+    help
+        Station password. Leave empty for open networks.
+
+config KVA_SAMPLE_RATE
+    int "Microphone sample rate (Hz)"
+    default 16000
+    range 8000 48000
+    help
+        Capture rate passed to the Korvo-1 microphone front-end.
+
+config KVA_CAPTURE_MS
+    int "Capture duration (ms)"
+    default 2500
+    range 500 10000
+    help
+        Maximum audio length sent to OpenAI after each wake word.
+
+config KVA_WAKE_WORD_SENSITIVITY
+    int "Wake-word sensitivity (0-100)"
+    default 60
+    range 1 100
+    help
+        Threshold passed to the wake-word detector (higher is less sensitive).
+
+config KVA_SIMULATED_WAKE_INTERVAL_MS
+    int "Debug wake trigger interval (ms, 0=disabled)"
+    default 0
+    range 0 600000
+    help
+        When non-zero, the wake-word service will simulate a detection on this interval to
+        exercise the pipeline without ESP-SR assets.
+
+config KVA_TTS_VOICE
+    string "TTS voice"
+    default "alloy"
+    help
+        Voice name for TTS (OpenAI: alloy/nova/shimmer/echo/fable/onyx, Gemini: en-US-Standard-D/en-US-Neural2-D).
+
+config KVA_USE_GEMINI
+    bool "Use Gemini AI instead of OpenAI"
+    default n
+    help
+        Enable this to use Google Gemini AI (STT-LLM-TTS) instead of OpenAI.
+        Requires GEMINI_API_KEY in ~/.env
+
+config KVA_SPOTIFY_DEVICE_NAME
+    string "Spotify Connect device name"
+    default "Korvo-1"
+    help
+        Device identifier to pass to Spotify commands (matches the name shown in the mobile app).
+
+config KVA_SPOTIFY_VOLUME_STEP
+    int "Spotify volume step (%)"
+    default 10
+    range 1 50
+    help
+        Percentage to nudge volume for volume up/down intents.
+
+config KVA_AWS_TELEMETRY_PERIOD_MS
+    int "AWS IoT telemetry period (ms)"
+    default 15000
+    range 1000 60000
+    help
+        Interval for publishing assistant state + sensor snapshots to AWS IoT topics.
+
+config KVA_LED_STRIP_GPIO
+    int "WS2812 data GPIO"
+    default 1
+    help
+        Set to the GPIO that feeds the Korvo-1 WS2812 chain (GPIO1 by default). Set to -1 to disable LED output.
+
+config KVA_LED_COUNT
+    int "WS2812 pixel count"
+    default 6
+    range 1 64
+    help
+        Number of LEDs to drive on the WS2812 chain.
+
+config KVA_LED_BRIGHTNESS
+    int "LED brightness (0-255)"
+    default 32
+    range 1 255
+    help
+        Brightness scaling applied before writing RGB values to the strip.
+
+config KVA_BUTTON1_GPIO
+    int "Button 1 GPIO"
+    default -1
+    help
+        Set to the GPIO connected to the Korvo-1 user button. Leave at -1 to disable button support.
+
+config KVA_BUTTON1_ACTIVE_LOW
+    bool "Button 1 is active-low"
+    default y
+
+config KVA_BUTTON_DEBOUNCE_MS
+    int "Button debounce window (ms)"
+    default 120
+    range 10 1000
+
+config KVA_CODEC_I2C_SDA
+    int "ES8388 I2C SDA"
+    default 1
+    help
+        GPIO used for the codec I2C SDA line.
+
+config KVA_CODEC_I2C_SCL
+    int "ES8388 I2C SCL"
+    default 2
+    help
+        GPIO used for the codec I2C SCL line.
+
+config KVA_CODEC_I2S_BCLK
+    int "ES8388 I2S BCLK"
+    default 3
+    help
+        GPIO used for the codec bit-clock (BCLK).
+
+config KVA_CODEC_I2S_LRCLK
+    int "ES8388 I2S LRCLK"
+    default 45
+    help
+        GPIO used for I2S word select / LRCLK.
+
+config KVA_CODEC_I2S_DATA
+    int "ES8388 I2S data (DAC)"
+    default 46
+    help
+        GPIO used for I2S data out to the codec (DAC SDIN).
+
+config KVA_CODEC_I2S_MCLK
+    int "ES8388 I2S MCLK"
+    default 0
+    help
+        GPIO that provides the master clock to the codec.
+
+config KVA_CODEC_I2S_PORT
+    int "I2S port used for codec playback"
+    default 1
+    range 0 1
+    help
+        Choose 0 or 1 depending on conflicts with the microphone capture path. Default keeps mic on port 0 and codec playback on port 1.
+
+config KVA_SPOTIFY_USE_CSPOT
+    bool "Enable Spotify playback via cspot"
+    default y
+    help
+        Enable this to embed the cspot Spotify Connect receiver. Requires the upstream cspot repository
+        to exist alongside Naphome-Firmware (../cspot) and increases flash/RAM usage.
+
+config KVA_SPOTIFY_DEVICE_NAME
+    string "Spotify Connect device name"
+    default "Korvo Naphome"
+    help
+        Display name shown in the Spotify app when pairing with this device.
+
+endmenu

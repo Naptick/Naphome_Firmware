@@ -1,0 +1,75 @@
+menu "Naphome AWS IoT"
+
+config NAPHOME_AWS_IOT_ENDPOINT
+    string "AWS IoT endpoint"
+    default ""
+    help
+        Fully qualified AWS IoT Core endpoint hostname. Example:
+        "xxxxxxxxxx-ats.iot.us-west-2.amazonaws.com"
+
+config NAPHOME_AWS_IOT_CLIENT_ID
+    string "AWS IoT client ID / Thing name"
+    default ""
+    help
+        Client identifier used when connecting to AWS IoT Core. Typically matches
+        the Thing name provisioned for the device.
+
+config NAPHOME_AWS_IOT_PORT
+    int "AWS IoT MQTT port"
+    default 8883
+    help
+        TLS port used for MQTT over mutual TLS. Default is 8883.
+
+config NAPHOME_AWS_IOT_KEEPALIVE_SEC
+    int "AWS IoT MQTT keepalive (seconds)"
+    default 60
+    range 10 1200
+    help
+        Keepalive interval requested by the device. AWS IoT enforces an upper
+        bound of 1200 seconds.
+
+config NAPHOME_AWS_IOT_CLEAN_SESSION
+    bool "Start clean MQTT session"
+    default y
+    help
+        When enabled, the client requests a clean session on connect.
+
+config NAPHOME_AWS_IOT_AUTO_RECONNECT
+    bool "Enable AWS IoT auto-reconnect"
+    default y
+    help
+        When enabled, the AWS IoT SDK attempts to reconnect automatically after
+        a disconnection.
+
+config NAPHOME_AWS_IOT_FAIL_ON_PLACEHOLDER_CERTS
+    bool "Abort init if placeholder credentials detected"
+    default y
+    help
+        If enabled, the firmware refuses to initialise AWS IoT using the
+        placeholder credentials shipped with the repository.
+
+config NAPHOME_AWS_IOT_SUBSCRIBE_TOPIC
+    string "Default subscription topic"
+    default ""
+    help
+        Optional topic to subscribe to automatically once the MQTT connection
+        succeeds. Leave empty to disable the automatic subscription.
+
+config NAPHOME_AWS_IOT_SUBSCRIBE_QOS
+    int "Default subscription QoS"
+    default 0
+    range 0 1
+    help
+        QoS level used when subscribing to the default topic (if provided).
+
+config NAPHOME_AWS_IOT_YIELD_TIMEOUT_MS
+    int "MQTT yield timeout (ms)"
+    default 200
+    range 10 1000
+    help
+        Timeout supplied to aws_iot_mqtt_yield while running the AWS IoT service
+        loop.
+
+
+endmenu
+

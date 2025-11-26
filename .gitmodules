@@ -1,0 +1,6 @@
+[submodule "components/esp-tflite-micro"]
+	path = components/esp-tflite-micro
+	url = https://github.com/espressif/esp-tflite-micro.git
+[submodule "components/m5gfx"]
+	path = components/m5gfx
+	url = https://github.com/m5stack/M5GFX.git

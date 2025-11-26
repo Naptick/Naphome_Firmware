@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "bedtime_warm_scene",
+      "enabled": true,
+      "description": "After 10pm, when someone is present, set warm dim lights and soft noise.",
+      "trigger": {
+        "type": "time_window",
+        "start_local": "22:00",
+        "end_local": "23:30",
+        "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      },
+      "conditions": {
+        "logic": "ALL",
+        "items": [
+          {
+            "sensor": "presence",
+            "op": "==",
+            "value": true
+          },
+          {
+            "sensor": "temp_c",
+            "op": "<=",
+            "value": 23.0
+          }
+        ]
+      },
+      "actions": [
+        {
+          "type": "set_light",
+          "target": "strip_main",
+          "mode": "scene",
+          "scene_id": "warm_dim",
+          "transition_ms": 5000
+        },
+        {
+          "type": "set_sound",
+          "mode": "scene",
+          "scene_id": "brown_noise_soft",
+          "volume": 0.25
+        }
+      ],
+      "limits": {
+        "min_repeat_sec": 300
+      }
+    },
+    {
+      "id": "too_hot_cool_down",
+      "enabled": true,
+      "description": "If temp > 24.5°C at night, shift sound and lights to \"cool\" mode.",
+      "trigger": {
+        "type": "sensor_change",
+        "sensor": "temp_c",
+        "min_delta": 0.2
+      },
+      "conditions": {
+        "logic": "ALL",
+        "items": [
+          {
+            "sensor": "temp_c",
+            "op": ">",
+            "value": 24.5
+          },
+          {
+            "sensor": "time_local",
+            "op": "IN_WINDOW",
+            "value": {
+              "start": "21:00",
+              "end": "07:00"
+            }
+          }
+        ]
+      },
+      "actions": [
+        {
+          "type": "set_light",
+          "target": "strip_main",
+          "mode": "color",
+          "color_rgb": [160, 200, 255],
+          "brightness": 0.2,
+          "transition_ms": 3000
+        },
+        {
+          "type": "set_sound",
+          "mode": "playlist",
+          "playlist_id": "cooling_rain",
+          "volume": 0.30
+        }
+      ],
+      "limits": {
+        "min_repeat_sec": 600
+      }
+    },
+    {
+      "id": "high_humidity_rain_scene",
+      "enabled": true,
+      "description": "If humidity gets high, shift LEDs to blue and play rain quietly.",
+      "trigger": {
+        "type": "sensor_change",
+        "sensor": "humidity_pct",
+        "min_delta": 1.0
+      },
+      "conditions": {
+        "logic": "ANY",
+        "items": [
+          {
+            "sensor": "humidity_pct",
+            "op": ">=",
+            "value": 70.0
+          }
+        ]
+      },
+      "actions": [
+        {
+          "type": "set_light",
+          "target": "strip_main",
+          "mode": "color",
+          "color_rgb": [80, 120, 255],
+          "brightness": 0.15,
+          "transition_ms": 4000
+        },
+        {
+          "type": "set_sound",
+          "mode": "scene",
+          "scene_id": "gentle_rain",
+          "volume": 0.20
+        }
+      ],
+      "limits": {
+        "min_repeat_sec": 900
+      }
+    }
+  ]
+}

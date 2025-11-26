@@ -1,0 +1,12 @@
+Quantity,Reference Designator,Manufacturer Part Number,Description,DigiKey Part Number,DigiKey URL
+2,DEV1 DEV2,M5Stack Atom S3R,M5Stack Atom S3R ESP32-S3 Development Board with 0.85" Display,,
+2,AUDIO1 AUDIO2,M5Stack Audio Module ES8388,M5Stack Audio Module ES8388 with Dual 3.5mm Jacks,,
+2,ENV1 ENV2,U001-C,M5Stack ENV III Unit SHT30 Temperature Humidity QMP6988 Pressure Sensor,,
+2,VOC1 VOC2,SGP40-D-R4,Sensirion SGP40 VOC Air Quality Sensor with Humidity Compensation,,
+2,PM1 PM2,SPS30-2-5-10,Sensirion SPS30 Particulate Matter PM2.5 PM10 Air Quality Sensor,,
+2,LIGHT1 LIGHT2,U136,M5Stack DLight Unit BH1750FVI Ambient Light Sensor,,
+8,MIC1-MIC8,ICS-43434,TDK InvenSense ICS-43434 I2S Digital MEMS Microphone,,
+2,PROTO1 PROTO2,A077,M5Stack ATOMIC DIY Kit A077 Prototyping Board,,
+2,LED1 LED2,WS2812B,Worldsemi WS2812B Addressable RGB LED Strip 10-12 LEDs,,
+1,CONN1,U039-B,M5Stack Grove-T Connector 5pcs Pack for I2C Sensor Daisy-Chaining,,
+1,SEEED1,104020131,Seeed Technology Component 104020131,10451878,https://www.digikey.com/en/products/detail/seeed-technology-co-ltd/104020131/10451878

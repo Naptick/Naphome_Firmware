@@ -1,0 +1,30 @@
+menu "Korvo OpenAI Voice Demo"
+
+config KORVO_OPENAI_WIFI_SSID
+    string "Wi-Fi SSID"
+    help
+        Station SSID used by the demo to connect before calling OpenAI.
+
+config KORVO_OPENAI_WIFI_PASSWORD
+    string "Wi-Fi Password"
+    default ""
+    help
+        Station password. Leave empty for open networks.
+
+config KORVO_OPENAI_SAMPLE_RATE
+    int "Microphone sample rate (Hz)"
+    default 16000
+    range 8000 48000
+
+config KORVO_OPENAI_CAPTURE_MS
+    int "Capture duration (ms)"
+    default 2000
+    range 200 10000
+
+config KORVO_OPENAI_TTS_VOICE
+    string "OpenAI TTS voice"
+    default "alloy"
+    help
+        Voice name passed to the /v1/audio/speech endpoint.
+
+endmenu

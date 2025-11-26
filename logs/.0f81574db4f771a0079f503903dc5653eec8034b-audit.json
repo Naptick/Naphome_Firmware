@@ -1,0 +1,80 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/.0f81574db4f771a0079f503903dc5653eec8034b-audit.json",
+    "files": [
+        {
+            "date": 1762916391713,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-11.log",
+            "hash": "185db108c7f9317bebdca1415aa8b51ea367697934a4aa44388f5352c5a877be"
+        },
+        {
+            "date": 1762978926536,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-12.log",
+            "hash": "504e7c4244623e16d4b04b2f76591719cb840a586439bdab96d407537ae193bc"
+        },
+        {
+            "date": 1763053045216,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-13.log",
+            "hash": "214ad6d37a27007b28106bdedbf98767a1977affa37ee3057f4f271f1f358822"
+        },
+        {
+            "date": 1763142919461,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-14.log",
+            "hash": "9b662da31090fd1cabcf5d3a26c95221fae7800c1efae742bae4b8142aa8bd2f"
+        },
+        {
+            "date": 1763341288251,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-16.log",
+            "hash": "2021b64b89e96f7645e08f47cb8f57149963439c56c2f3b7fc88ace79322f9db"
+        },
+        {
+            "date": 1763412748406,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-17.log",
+            "hash": "a9b8b98c54394c53e071b79850debe2fbf0b4b62e2a4165096ee423d63023c4c"
+        },
+        {
+            "date": 1763483544331,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-18.log",
+            "hash": "8dd0443c67287a95714615cf06a7599b0a5a3041d464cc3eb866a9bdcdb22ef4"
+        },
+        {
+            "date": 1763572515295,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-19.log",
+            "hash": "731955d319127edb3de76a072f7a767c3262805ac20f17d23a1d246ddf4db1ad"
+        },
+        {
+            "date": 1763641001071,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-20.log",
+            "hash": "869dc5444da653265905c83c3090fabcf87b46101cd44714389c159cacf41b04"
+        },
+        {
+            "date": 1763744594537,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-21.log",
+            "hash": "e099a1f6c01df48c43a5ac21f047ad174b6fc9f40750f0c44a09ff8e86c0960b"
+        },
+        {
+            "date": 1763830279128,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-22.log",
+            "hash": "897d6a8bf8a1bf19f4273ae764f3d2be266f4ce27b60980f3b573a5f820328b9"
+        },
+        {
+            "date": 1763883517221,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-23.log",
+            "hash": "d2c1d80bf55ab07f14899340bcc135d88dcc088b0a2f1123b3bea8cad46f0afa"
+        },
+        {
+            "date": 1763991258612,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-24.log",
+            "hash": "334e0bacb2fdd56b0e5d5954f84d94c4d03382dda14e35f0e65c7973fbf61d91"
+        },
+        {
+            "date": 1764075330420,
+            "name": "/Users/danielmcshan/GitHub/Naphome-Firmware/logs/mcp-puppeteer-2025-11-25.log",
+            "hash": "5eab6e85e70429d5de67638162de6076348a5e47183f102607838eb74b34d1c6"
+        }
+    ],
+    "hashType": "sha256"
+}

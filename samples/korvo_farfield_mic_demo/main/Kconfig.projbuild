@@ -1,0 +1,63 @@
+menu "Korvo Far-Field Mic Demo"
+
+    config KORVO_FARFIELD_LED_GPIO
+        int "WS2812 LED GPIO pin"
+        default 19
+        help
+            GPIO pin connected to WS2812 LED strip data line.
+            Default is GPIO19 for Korvo-1. Note: ES7210 I2C SDA uses GPIO1.
+
+    config KORVO_FARFIELD_LED_COUNT
+        int "Number of LEDs in strip"
+        default 12
+        help
+            Number of WS2812 LEDs in the strip.
+            Default is 12 for Korvo-1 ring.
+
+    config KORVO_FARFIELD_LED_BRIGHTNESS
+        int "LED brightness (0-255)"
+        range 0 255
+        default 32
+        help
+            Brightness level for LEDs (0-255).
+            Lower values reduce power consumption.
+
+    config KORVO_FARFIELD_SAMPLE_RATE
+        int "Audio sample rate (Hz)"
+        default 16000
+        help
+            I2S sample rate for microphone capture.
+            16000 Hz is standard for voice applications.
+
+    config KORVO_FARFIELD_FRAME_SIZE_MS
+        int "Audio frame size (milliseconds)"
+        default 20
+        range 10 100
+        help
+            Size of each audio frame in milliseconds.
+            Smaller values = more responsive LEDs but more CPU usage.
+
+    config KORVO_FARFIELD_WAKE_WORD_ENABLE
+        bool "Enable wake word detection (ESP-SR WakeNet)"
+        default y
+        help
+            Enable wake word detection using ESP-SR WakeNet.
+            When enabled, the device will listen for the configured wake word.
+
+    config KORVO_FARFIELD_WAKE_WORD_MODEL
+        string "Wake word model name"
+        default "wn9_hiesp"
+        depends on KORVO_FARFIELD_WAKE_WORD_ENABLE
+        help
+            WakeNet model to use. Available models: wn9_hiesp, wn9_hilexin, wn9_alexa, etc.
+            For custom wake word "Naptick", you need to train a custom model via Espressif's customization process.
+
+    config KORVO_FARFIELD_WAKE_WORD_THRESHOLD
+        int "Wake word detection threshold (0-100)"
+        default 60
+        range 0 100
+        depends on KORVO_FARFIELD_WAKE_WORD_ENABLE
+        help
+            Detection threshold (higher = less sensitive, fewer false positives).
+
+endmenu

@@ -1,0 +1,61 @@
+menu "OpenWakeWord Configuration"
+
+    config OPENWAKEWORD_ENABLE
+        bool "Enable OpenWakeWord wake word detection"
+        default n
+        help
+            Enable OpenWakeWord for self-trained wake word detection.
+            Requires TensorFlow Lite Micro and trained model.
+
+    config OPENWAKEWORD_USE_TFLITE
+        bool "Use TensorFlow Lite Micro for inference"
+        default n
+        depends on OPENWAKEWORD_ENABLE
+        help
+            Enable TensorFlow Lite Micro integration for model inference.
+            Requires esp-tflite-micro component to be added.
+
+    config OPENWAKEWORD_MODEL_PATH
+        string "Wake word model path"
+        default "/spiffs/hey_naptick.tflite"
+        depends on OPENWAKEWORD_ENABLE
+        help
+            Path to TFLite model file in SPIFFS or partition.
+
+    config OPENWAKEWORD_THRESHOLD
+        int "Detection threshold (0 to 1000, represents 0.0 to 1.0)"
+        range 0 1000
+        default 500
+        depends on OPENWAKEWORD_ENABLE
+        help
+            Confidence threshold for wake word detection (0-1000 = 0.0-1.0).
+            Higher values = fewer false positives, more false negatives.
+
+    config OPENWAKEWORD_FRAME_SIZE_MS
+        int "Audio frame size (milliseconds)"
+        range 10 200
+        default 80
+        depends on OPENWAKEWORD_ENABLE
+        help
+            Audio frame size for processing. OpenWakeWord uses 80ms frames.
+            Smaller = lower latency but more CPU usage.
+
+    config OPENWAKEWORD_COOLDOWN_MS
+        int "Detection cooldown (milliseconds)"
+        range 0 10000
+        default 2000
+        depends on OPENWAKEWORD_ENABLE
+        help
+            Minimum time between detections to avoid repeated triggers.
+
+    config OPENWAKEWORD_TENSOR_ARENA_SIZE
+        int "TensorFlow Lite tensor arena size (bytes)"
+        default 16384
+        range 4096 131072
+        depends on OPENWAKEWORD_USE_TFLITE
+        help
+            Memory arena size for TFLite interpreter.
+            Larger models may need more memory.
+            Typical: 8-32 KB for small wake word models.
+
+endmenu

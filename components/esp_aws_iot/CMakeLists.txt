@@ -1,0 +1,30 @@
+idf_component_register(
+    SRCS
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_jobs_interface.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_jobs_json.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_jobs_topics.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_jobs_types.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_json_utils.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_common_internal.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_connect.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_publish.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_subscribe.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_unsubscribe.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_mqtt_client_yield.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_shadow.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_shadow_actions.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_shadow_json.c"
+        "aws-iot-device-sdk-embedded-C/src/aws_iot_shadow_records.c"
+        "port/network_mbedtls_wrapper.c"
+        "port/threads_freertos.c"
+        "port/timer.c"
+    INCLUDE_DIRS
+        "aws-iot-device-sdk-embedded-C/include"
+        "port/include"
+    REQUIRES
+        mbedtls
+        vfs
+    PRIV_REQUIRES
+        jsmn
+)

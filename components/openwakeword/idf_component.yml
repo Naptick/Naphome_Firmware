@@ -1,0 +1,10 @@
+## IDF Component Manager Manifest
+## OpenWakeWord component for ESP32-S3
+
+# dependencies:
+  # Optional: ESP-DSP for optimized FFT
+  # Uncomment to enable:
+  # espressif/esp-dsp: "^1.0.0"
+  
+  # Note: TensorFlow Lite Micro must be added manually as git submodule
+  # git submodule add https://github.com/espressif/esp-tflite-micro components/esp-tflite-micro

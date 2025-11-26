@@ -1,0 +1,18 @@
+menu "cspot Spotify Connect"
+
+config CSPOT_ENABLE
+    bool "Include cspot Spotify Connect support"
+    default y
+    help
+        Enable integration of the cspot Spotify Connect library from
+        CONFIG_CSPOT_PATH. Disable if you do not wish to build Spotify support.
+
+config CSPOT_PATH
+    string "Path to cspot checkout"
+    depends on CSPOT_ENABLE
+    default "~/GitHub/cspot"
+    help
+        Filesystem path to a local clone of https://github.com/cspot-developers/cspot.
+        Must contain cspot/CMakeLists.txt.
+
+endmenu

@@ -1,0 +1,17 @@
+/**
+ * @file version_info.h
+ * @brief Auto-generated version information
+ * 
+ * This file is generated at build time with git commit hash and build timestamp.
+ */
+
+#ifndef VERSION_INFO_H
+#define VERSION_INFO_H
+
+#define FIRMWARE_VERSION "@FIRMWARE_VERSION@"
+#define GIT_COMMIT_HASH "@GIT_COMMIT_HASH@"
+#define GIT_COMMIT_DATE "@GIT_COMMIT_DATE@"
+#define BUILD_TIMESTAMP "@BUILD_TIMESTAMP@"
+#define BUILD_DATE "@BUILD_DATE@"
+
+#endif // VERSION_INFO_H

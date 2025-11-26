@@ -1,0 +1,31 @@
+menu "Somnus MQTT Integration"
+
+config SOMNUS_MQTT_CERT_DISCOVERY
+    bool "Enable runtime discovery of Somnus certificate bundle"
+    default y
+    help
+        When enabled, the firmware scans a certificate directory at runtime to
+        locate the Somnus TLS credentials (certificate, private key, and CA).
+        Disable to rely solely on the embedded PEM files packaged with the
+        firmware build.
+
+config SOMNUS_MQTT_CERT_DIR
+    string "Somnus certificate directory"
+    depends on SOMNUS_MQTT_CERT_DISCOVERY
+    default "/spiffs/Cert"
+    help
+        Filesystem path scanned for certificate bundles. The directory should
+        contain files named following the Somnus convention:
+          <prefix>-certificate.pem.crt
+          <prefix>-private.pem.key
+          AmazonRootCA1.pem (or *CA1.pem)
+
+config SOMNUS_MQTT_SUBSCRIBE_QOS
+    int "Somnus subscribe QoS"
+    default 1
+    range 0 1
+    help
+        QoS level used when subscribing to the Somnus command topic.
+
+endmenu
+

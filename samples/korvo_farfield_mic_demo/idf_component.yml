@@ -1,0 +1,3 @@
+## IDF Component Manager Manifest File
+## Note: esp-sr is provided via EXTRA_COMPONENT_DIRS in CMakeLists.txt
+dependencies: {}

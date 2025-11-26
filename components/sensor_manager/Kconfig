@@ -1,0 +1,12 @@
+menu "Sensor Manager"
+
+config SENSOR_MANAGER_PUBLISH_INTERVAL_MS
+    int "Sensor telemetry publish interval (ms)"
+    default 10000
+    range 1000 600000
+    help
+        Interval at which the sensor manager aggregates registered sensor readings
+        and publishes a telemetry payload via MQTT.
+
+endmenu
+

@@ -1,0 +1,24 @@
+Quantity,Reference Designator,Manufacturer Part Number,Description
+1,U1,M5Stack Atom S3R,"M5Stack Atom S3R ESP32-S3 Development Board with 0.85"" Display"
+1,U2,TPA3118-MODULE,TPA3118 Class-D Stereo Amplifier Module 2?15W @ 4? (Source separately: Amazon HiLetgo TPA3118 or similar - $8-12, zero soldering)
+1,SPK1,TC6FD02-04,Peerless by Tymphany TC6FD02-04 4? Speaker (DigiKey: TC6FD02-04-ND, https://www.digikey.com/en/products/detail/peerless-by-tymphany/TC6FD02-04/6211122)
+1,U2A,1528-6250-ND,Adafruit PCM5102 I2S DAC Breakout Board (DigiKey: 1528-6250-ND, converts I2S to analog for TPA3118)
+1,J2,S2B-PH-K-S,JST PH 2-Position Connector for Speaker
+2,MIC1 MIC2,1528-6049-ND,Adafruit I2S MEMS Microphone Breakout Board with ICS-43434 (DigiKey: 1528-6049-ND, includes headers - connects via I2S pins, not Qwiic)
+1,U3,SHT45,STH45 Temperature and Humidity Sensor I2C
+1,U4,OPT3002DNPR,OPT3002 Ambient Light Sensor I2C
+1,U6,SGP40-D-R4,SGP40 VOC Sensor I2C
+1,U7,SPS30,PM2.5 Particulate Matter Sensor I2C
+1,U8,1649-SCD41-D-R2TR-ND,Sensirion SCD41 CO2 Sensor I2C (DigiKey: 1649-SCD41-D-R2TR-ND, replaces SparkFun 22396)
+1,U13,20170,SparkFun Qwiic BMP581 Barometric Pressure Sensor I2C
+4,ADAP1-ADAP4,15109,SparkFun Qwiic to Grove Adapter I2C
+4,CABLE1-CABLE4,1528-4210-ND,Adafruit JST SH 4-PIN CABLE - QWIIC/STEMMA COMPATIBLE (DigiKey: 1528-4210-ND)
+1,U9,USB-C-PD-12V-MODULE,USB-C PD to 12V Trigger Module (Source separately: Amazon DWEII or similar - $5-15, zero soldering)
+1,U10,MCP73831T-2DCI/OT,Microchip MCP73831 Li-ion Battery Charger IC
+1,BAT1,USE-18650-2600MAH,Ultralife 18650 Lithium-Ion Battery 3.7V 2600mAh
+1,U11,AMS1117-5.0 SOT-89,AP2112 5V 600mA LDO Regulator
+1,U12,AP2112K-3.3TRG1,AP2112 3.3V 600mA LDO Regulator
+1,SW1,1715-1.14.012.503/0000TR-ND,Reset Button Tactile Switch 6mm (DigiKey: 1715-1.14.012.503/0000TR-ND)
+1,D1,754-2148-2-ND,RGB Status LED Common Cathode (DigiKey: 754-2148-2-ND)
+1,D2,754-1578-2-ND,940nm IR LED for Remote Control (DigiKey: 754-1578-2-ND, alternative to Vishay TSAL6100)
+1,SEEED1,104020131,Seeed Technology Component 104020131 (DigiKey: 10451878),10451878,https://www.digikey.com/en/products/detail/seeed-technology-co-ltd/104020131/10451878

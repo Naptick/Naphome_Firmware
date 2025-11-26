@@ -1,0 +1,145 @@
+# OpenWakeWord Integration Patch for wake_word_service
+# 
+# This patch shows the exact changes needed to integrate OpenWakeWord
+# into the existing wake_word_service as an optional alternative to
+# the energy-based detector.
+#
+# Usage:
+#   1. Review this patch
+#   2. Apply changes manually to wake_word_service.c and wake_word_service.h
+#   3. Or use: git apply wake_word_service_oww_patch.diff (if compatible)
+#
+# The integration adds OpenWakeWord as an optional wake word detector
+# that can be enabled via Kconfig, while keeping the existing
+# energy-based detector as a fallback.
+
+--- a/samples/korvo_voice_assistant/main/wake_word_service.h
++++ b/samples/korvo_voice_assistant/main/wake_word_service.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ 
+ #include "aws_iot_bridge.h"
++#include "openwakeword.h"
+ #include "esp_err.h"
+ #include "korvo_audio.h"
+ 
+@@ -13,6 +14,7 @@ typedef void (*wake_word_callback_t)(void *ctx);
+ typedef struct {
+     korvo_audio_t *audio;
+     aws_iot_bridge_t *aws_bridge;
++    bool use_openwakeword;  // Enable OpenWakeWord instead of energy-based
+     int sensitivity;
+     int simulated_interval_ms;
+     int frame_samples;
+@@ -25,4 +27,5 @@ typedef struct wake_word_service wake_word_service_t;
+ wake_word_service_t *wake_word_service_start(const wake_word_service_config_t *cfg,
+                                              wake_word_callback_t cb,
+                                              void *cb_ctx);
+ void wake_word_service_stop(wake_word_service_t *service);
++
+ #endif
+
+--- a/samples/korvo_voice_assistant/main/wake_word_service.c
++++ b/samples/korvo_voice_assistant/main/wake_word_service.c
+@@ -1,5 +1,6 @@
+ #include "wake_word_service.h"
+ #include "openwakeword.h"
++#include "esp_check.h"
+ 
+ struct wake_word_service {
+     wake_word_service_config_t cfg;
+@@ -16,6 +17,10 @@ struct wake_word_service {
+     int calibration_count;
+     float calibration_sum;
+     int calibration_samples;
++    
++    // OpenWakeWord integration
++    openwakeword_handle_t oww_handle;
++    bool use_openwakeword;
+ };
+ 
+ static void openwakeword_detection_callback(const char *wake_word_name,
+@@ -25,6 +30,7 @@ static void openwakeword_detection_callback(const char *wake_word_name,
+     wake_word_service_t *service = (wake_word_service_t *)user_data;
+     if (!service || !service->callback) {
+         return;
+     }
++    ESP_LOGI(TAG, "OpenWakeWord detected: %s (confidence: %.2f)", wake_word_name, confidence);
+     service->callback(service->callback_ctx);
+ }
+ 
+@@ -35,6 +41,40 @@ wake_word_service_t *wake_word_service_start(const wake_word_service_config_t *
+     if (!service) {
+         return NULL;
+     }
++    
++    service->use_openwakeword = cfg->use_openwakeword;
++    service->oww_handle = NULL;
++    
++    // Initialize OpenWakeWord if enabled
++    if (service->use_openwakeword) {
++        openwakeword_config_t oww_config = {
++            .model_path = CONFIG_OPENWAKEWORD_MODEL_PATH,
++            .threshold = CONFIG_OPENWAKEWORD_THRESHOLD,
++            .sample_rate = 16000,  // Match Korvo audio sample rate
++            .frame_size_ms = CONFIG_OPENWAKEWORD_FRAME_SIZE_MS,
++            .cooldown_ms = cfg->cooldown_ms > 0 ? cfg->cooldown_ms : 2000,
++            .enable_vad = false,
++            .vad_threshold = 0.5f,
++        };
++        
++        esp_err_t oww_err = openwakeword_init(&oww_config,
++                                               openwakeword_detection_callback,
++                                               service,
++                                               &service->oww_handle);
++        
++        if (oww_err == ESP_OK && service->oww_handle) {
++            ESP_LOGI(TAG, "OpenWakeWord initialized successfully");
++            size_t required_samples = 0;
++            openwakeword_get_input_requirements(service->oww_handle, &required_samples);
++            ESP_LOGI(TAG, "OpenWakeWord requires %zu samples per frame", required_samples);
++        } else {
++            ESP_LOGW(TAG, "OpenWakeWord initialization failed: %s, falling back to energy-based", 
++                     esp_err_to_name(oww_err));
++            service->use_openwakeword = false;
++            service->oww_handle = NULL;
++        }
++    }
++    
+     service->cfg = *cfg;
+     service->callback = cb;
+     service->callback_ctx = cb_ctx;
+@@ -80,6 +120,20 @@ static void wake_word_task(void *arg)
+         }
+ 
+         float level = compute_frame_level(service->frame_buffer, read);
++        
++        // Process with OpenWakeWord if enabled
++        if (service->use_openwakeword && service->oww_handle) {
++            esp_err_t oww_err = openwakeword_process_audio(service->oww_handle,
++                                                             service->frame_buffer,
++                                                             read);
++            if (oww_err != ESP_OK && oww_err != ESP_ERR_NOT_FINISHED) {
++                ESP_LOGW(TAG, "OpenWakeWord processing error: %s", esp_err_to_name(oww_err));
++            }
++            // OpenWakeWord will call the callback directly when detected
++            // Skip energy-based detection when using OpenWakeWord
++            vTaskDelay(frame_delay);
++            continue;
++        }
++        
+         // ... rest of energy-based detection code ...
+ 
+ void wake_word_service_stop(wake_word_service_t *service)
+@@ -90,6 +144,11 @@ void wake_word_service_stop(wake_word_service_t *service)
+     if (service->simulated_timer) {
+         xTimerStop(service->simulated_timer, 0);
+         xTimerDelete(service->simulated_timer, 0);
+     }
++    if (service->oww_handle) {
++        openwakeword_deinit(service->oww_handle);
++        service->oww_handle = NULL;
++    }
+     if (service->task) {
+         service->stop_requested = true;
+         while (service->task) {

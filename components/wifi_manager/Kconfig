@@ -1,0 +1,24 @@
+menu "Naphome Wi-Fi Manager"
+
+config NAPHOME_WIFI_SSID
+    string "Wi-Fi SSID"
+    default ""
+    help
+        SSID of the Wi-Fi network to join in station mode.
+
+config NAPHOME_WIFI_PASSWORD
+    string "Wi-Fi password"
+    default ""
+    help
+        Passphrase for the Wi-Fi network. Leave empty for open networks.
+
+config NAPHOME_WIFI_MAX_RETRY
+    int "Maximum reconnect attempts (0 = infinite)"
+    default 0
+    range 0 100
+    help
+        Number of times the Wi-Fi manager retries the connection before giving
+        up. Set to 0 to keep retrying indefinitely.
+
+endmenu
+

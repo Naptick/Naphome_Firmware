@@ -1,0 +1,5 @@
+{
+  "certificateArn": "arn:aws:iot:ap-south-1:204181332839:cert/5f3725d8fc61ff186099dbf6c57ad7605c5506d1a3efc8f1831f08180399763a",
+  "certificateId": "5f3725d8fc61ff186099dbf6c57ad7605c5506d1a3efc8f1831f08180399763a",
+  "thingName": "TEST_LAPTOP"
+}

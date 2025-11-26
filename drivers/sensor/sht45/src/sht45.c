@@ -6,6 +6,8 @@
 #include "sht45.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <string.h>
 
 static const char *TAG = "sht45";
@@ -35,8 +37,16 @@ bool sht45_init(sht45_handle_t *handle, i2c_master_bus_handle_t i2c_bus, uint8_t
     handle->device_address = (device_addr != 0) ? device_addr : SHT45_I2C_ADDR_DEFAULT;
 
     // Perform soft reset
+    // Note: i2c_master_transmit_receive needs a device handle, not bus handle + address
+    // For v4.4 compatibility, we'll use direct I2C commands
     uint8_t cmd = SHT45_CMD_SOFT_RESET;
-    i2c_master_transmit_receive(handle->i2c_bus, handle->device_address, &cmd, 1, NULL, 0, -1);
+    i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
+    i2c_master_start(i2c_cmd);
+    i2c_master_write_byte(i2c_cmd, (handle->device_address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(i2c_cmd, cmd, true);
+    i2c_master_stop(i2c_cmd);
+    i2c_master_cmd_begin(handle->i2c_bus, i2c_cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(i2c_cmd);
     vTaskDelay(pdMS_TO_TICKS(10));
 
     // Verify device presence by attempting a read
@@ -71,17 +81,17 @@ bool sht45_read(sht45_handle_t *handle, sht45_data_t *data)
     uint8_t cmd = SHT45_CMD_MEASURE_T_RH_HPM;
     uint8_t rx_data[6] = {0};
 
-    // Send measurement command
-    esp_err_t ret = i2c_master_transmit_receive(
-        handle->i2c_bus,
-        handle->device_address,
-        &cmd, 1,
-        rx_data, 6,
-        -1
-    );
+    // Send measurement command using v4.4 I2C API
+    i2c_cmd_handle_t i2c_cmd = i2c_cmd_link_create();
+    i2c_master_start(i2c_cmd);
+    i2c_master_write_byte(i2c_cmd, (handle->device_address << 1) | I2C_MASTER_WRITE, true);
+    i2c_master_write_byte(i2c_cmd, cmd, true);
+    i2c_master_stop(i2c_cmd);
+    esp_err_t ret = i2c_master_cmd_begin(handle->i2c_bus, i2c_cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(i2c_cmd);
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "I2C read failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "I2C write failed: %s", esp_err_to_name(ret));
         data->valid = false;
         return false;
     }
@@ -89,8 +99,17 @@ bool sht45_read(sht45_handle_t *handle, sht45_data_t *data)
     // Wait for measurement to complete
     vTaskDelay(pdMS_TO_TICKS(SHT45_MEASURE_DELAY_MS));
 
-    // Read measurement data
-    ret = i2c_master_receive(handle->i2c_bus, handle->device_address, rx_data, 6, -1);
+    // Read measurement data using v4.4 I2C API
+    i2c_cmd = i2c_cmd_link_create();
+    i2c_master_start(i2c_cmd);
+    i2c_master_write_byte(i2c_cmd, (handle->device_address << 1) | I2C_MASTER_READ, true);
+    if (6 > 1) {
+        i2c_master_read(i2c_cmd, rx_data, 6 - 1, I2C_MASTER_ACK);
+    }
+    i2c_master_read_byte(i2c_cmd, rx_data + 6 - 1, I2C_MASTER_NACK);
+    i2c_master_stop(i2c_cmd);
+    ret = i2c_master_cmd_begin(handle->i2c_bus, i2c_cmd, pdMS_TO_TICKS(100));
+    i2c_cmd_link_delete(i2c_cmd);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "I2C read failed: %s", esp_err_to_name(ret));
         data->valid = false;

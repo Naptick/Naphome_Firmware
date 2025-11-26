@@ -1,0 +1,87 @@
+menu "Atom Echo Rules Demo"
+
+config ATOM_ECHO_LCD_SCLK_GPIO
+    int "LCD SCLK GPIO"
+    default 15
+
+config ATOM_ECHO_LCD_MOSI_GPIO
+    int "LCD MOSI GPIO"
+    default 21
+
+config ATOM_ECHO_LCD_CS_GPIO
+    int "LCD CS GPIO"
+    default 14
+
+config ATOM_ECHO_LCD_DC_GPIO
+    int "LCD DC GPIO (DISP_RS)"
+    default 48
+
+config ATOM_ECHO_LCD_RST_GPIO
+    int "LCD reset GPIO (DISP_RST)"
+    default 42
+
+config ATOM_ECHO_LCD_BL_GPIO
+    int "LCD backlight GPIO"
+    default 0
+
+config ATOM_ECHO_LCD_MAX_TRANSFER
+    int "LCD max transfer bytes"
+    default 0
+
+config ATOM_ECHO_NEOPIXEL_GPIO
+    int "WS2812 data GPIO"
+    default -1
+
+config ATOM_ECHO_NEOPIXEL_COUNT
+    int "WS2812 pixel count"
+    default 0
+
+config ATOM_ECHO_NEOPIXEL_BRIGHTNESS
+    int "WS2812 master brightness (0-255)"
+    range 1 255
+    default 48
+
+config ATOM_ECHO_I2C_SCAN_FREQ_HZ
+    int "I2C scan frequency (Hz)"
+    default 100000
+
+config ATOM_ECHO_I2C_INTERNAL_SDA
+    int "Internal IMU bus SDA GPIO"
+    default 38
+
+config ATOM_ECHO_I2C_INTERNAL_SCL
+    int "Internal IMU bus SCL GPIO"
+    default 39
+
+config ATOM_ECHO_I2C_INTERNAL_PORT
+    int "Internal IMU bus controller"
+    range 0 1
+    default 0
+
+config ATOM_ECHO_I2C_ATOM_SDA
+    int "Atom header SDA GPIO"
+    default 38
+
+config ATOM_ECHO_I2C_ATOM_SCL
+    int "Atom header SCL GPIO"
+    default 39
+
+config ATOM_ECHO_I2C_ATOM_PORT
+    int "Atom header bus controller"
+    range 0 1
+    default 0
+
+config ATOM_ECHO_I2C_PORTA_SDA
+    int "Port A SDA GPIO"
+    default 2
+
+config ATOM_ECHO_I2C_PORTA_SCL
+    int "Port A SCL GPIO"
+    default 1
+
+config ATOM_ECHO_I2C_PORTA_PORT
+    int "Port A bus controller"
+    range 0 1
+    default 1
+
+endmenu

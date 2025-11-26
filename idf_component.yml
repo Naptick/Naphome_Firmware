@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+dependencies:
+  aws/aws-iot-device-sdk-embedded-c:
+    version: "^3.0.0"
+    override_path: "./components/esp_aws_iot"
+  espressif/led_indicator:
+    version: "^2.0.2"

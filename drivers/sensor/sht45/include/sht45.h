@@ -11,13 +11,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "driver/i2c_master.h"
+#include "../../i2c_master_compat.h"
 
 /**
  * @brief SHT45 device handle
  */
 typedef struct {
-    i2c_master_bus_handle_t i2c_bus;  ///< I2C bus handle
+    i2c_master_bus_handle_t i2c_bus;  ///< I2C bus handle (i2c_port_t in v4.4)
     uint8_t device_address;           ///< I2C device address (default 0x44)
     bool initialized;                  ///< Initialization status
 } sht45_handle_t;
