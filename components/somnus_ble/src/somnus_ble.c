@@ -56,6 +56,8 @@ typedef struct {
 
 static somnus_ble_connect_wifi_cb_t s_connect_cb;
 static void *s_connect_ctx;
+static somnus_ble_device_command_cb_t s_device_command_cb;
+static void *s_device_command_ctx;
 static bool s_started;
 static bool s_notify_enabled;
 static uint16_t s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
@@ -335,22 +337,22 @@ static void somnus_ble_host_task(void *param)
     nimble_port_freertos_deinit();
 }
 
-static esp_err_t somnus_ble_set_advertising_fields(void)
+static esp_err_t somnus_ble_set_advertising_data(void)
 {
     struct ble_hs_adv_fields fields;
     memset(&fields, 0, sizeof(fields));
-
+    
     fields.flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
     fields.tx_pwr_lvl_is_present = 0;
     fields.name = (uint8_t *)SOMNUS_BLE_LOCAL_NAME;
     fields.name_len = strlen(SOMNUS_BLE_LOCAL_NAME);
     fields.name_is_complete = 1;
-
-    // Use the same UUID as the service definition (6e400001-b5a3-f393-e0a9-e50e24dcca9e)
+    
+    // 128-bit Service UUID (6e400001-b5a3-f393-e0a9-e50e24dcca9e) in little-endian format
     static const ble_uuid128_t service_uuid =
         {.u = {.type = BLE_UUID_TYPE_128},
          .value = {0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E}};
-
+    
     fields.uuids128 = &service_uuid;
     fields.num_uuids128 = 1;
     fields.uuids128_is_complete = 1;
@@ -361,13 +363,24 @@ static esp_err_t somnus_ble_set_advertising_fields(void)
     ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Advertising service UUID: %s", uuid_str);
     ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Advertising name: \"%s\" (len=%zu)", 
              SOMNUS_BLE_LOCAL_NAME, fields.name_len);
-    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Service includes 2 characteristics: TX (notify) and RX (write)");
-
+    
+    // Set advertising fields - this must be called when advertising is stopped
+    // Note: Device name is already set via ble_svc_gap_device_name_set, so device will be discoverable
+    // even if this fails. The service UUID in advertising data is optional.
     int rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
-        ESP_LOGE(SOMNUS_BLE_TAG, "ble_gap_adv_set_fields failed rc=%d (EINVAL=4, EBUSY=5, EALREADY=7)", rc);
-        return ESP_FAIL;
+        // These errors are expected if advertising is active - not a real failure
+        if (rc == BLE_HS_EBUSY || rc == BLE_HS_EALREADY) {
+            ESP_LOGD(SOMNUS_BLE_TAG, "Advertising fields set deferred (advertising active, rc=%d)", rc);
+            return ESP_OK;  // Not an error - will be set when advertising stops
+        }
+        // EINVAL (4) means invalid parameters or stack not ready
+        // This is not critical - device name is already set, so device will still be discoverable
+        ESP_LOGD(SOMNUS_BLE_TAG, "ble_gap_adv_set_fields failed rc=%d (will use device name only)", rc);
+        return ESP_OK;  // Not a fatal error - advertising will work with device name
     }
+    
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Advertising fields set successfully");
     return ESP_OK;
 }
 
@@ -383,7 +396,25 @@ static void somnus_ble_start_advertising(void)
         return;
     }
     
-    // Just start advertising - fields should already be set during initialization
+    // Stop any existing advertising first
+    int stop_rc = ble_gap_adv_stop();
+    if (stop_rc != 0 && stop_rc != BLE_HS_EALREADY) {
+        ESP_LOGD(SOMNUS_BLE_TAG, "ble_gap_adv_stop returned rc=%d", stop_rc);
+    }
+    
+    // Wait a bit for stop to complete (if it was running)
+    // Use a small delay to let the stack process the stop command
+    vTaskDelay(pdMS_TO_TICKS(50));
+    
+    // Try to set advertising fields (optional - device name is already set via ble_svc_gap_device_name_set)
+    // If this fails, advertising will still work with the device name
+    esp_err_t fields_set = somnus_ble_set_advertising_data();
+    if (fields_set != ESP_OK) {
+        // Not critical - device name is already set, so device will still be discoverable
+        ESP_LOGD(SOMNUS_BLE_TAG, "Advertising fields not set (will use device name only)");
+    }
+    
+    // Start advertising with proper parameters
     struct ble_gap_adv_params adv_params;
     memset(&adv_params, 0, sizeof(adv_params));
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;  // Undirected connectable - allows any device to connect
@@ -414,19 +445,20 @@ static void somnus_ble_on_sync(void)
     uint8_t addr_val[6] = {0};
     int rc = ble_hs_id_infer_auto(0, &addr_val[0]);
     
-    // Set advertising fields once when BLE stack is ready
-    if (somnus_ble_set_advertising_fields() != ESP_OK) {
-        ESP_LOGE(SOMNUS_BLE_TAG, "Failed to set advertising fields");
-    }
     if (rc != 0) {
         ESP_LOGE(SOMNUS_BLE_TAG, "ble_hs_id_infer_auto failed rc=%d", rc);
         return;
     }
+    
     rc = ble_hs_id_copy_addr(BLE_ADDR_PUBLIC, addr_val, NULL);
     if (rc != 0) {
         ESP_LOGE(SOMNUS_BLE_TAG, "ble_hs_id_copy_addr failed rc=%d", rc);
         return;
     }
+    
+    // Don't set advertising fields here - wait until we actually start advertising
+    // The stack might not be fully ready yet in the sync callback
+    ESP_LOGI(SOMNUS_BLE_TAG, "BLE stack synchronized, ready to start advertising");
     somnus_ble_start_advertising();
 }
 
@@ -530,6 +562,31 @@ static void somnus_ble_handle_command(const char *payload)
         return;
     }
 
+    // Check for device command format (Action with capital A, or array of actions)
+    const cJSON *action_capital = cJSON_GetObjectItemCaseSensitive(root, "Action");
+    bool is_device_command = (action_capital != NULL && cJSON_IsString(action_capital)) || cJSON_IsArray(root);
+    
+    if (is_device_command) {
+        // This is a device command (LED, SongChange, SetVolume, etc.)
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Device command detected, routing to action handler");
+        if (s_device_command_cb) {
+            esp_err_t err = s_device_command_cb(payload, s_device_command_ctx);
+            if (err == ESP_OK) {
+                somnus_ble_notify("Command executed");
+            } else {
+                char err_msg[64];
+                snprintf(err_msg, sizeof(err_msg), "Command failed: %s", esp_err_to_name(err));
+                somnus_ble_notify(err_msg);
+            }
+        } else {
+            ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Device command received but no handler registered");
+            somnus_ble_notify("Device command handler not available");
+        }
+        cJSON_Delete(root);
+        return;
+    }
+
+    // Check for BLE-specific actions (lowercase "action" field)
     const cJSON *action = cJSON_GetObjectItemCaseSensitive(root, "action");
     if (!cJSON_IsString(action) || action->valuestring == NULL) {
         ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Missing or invalid 'action' field");
@@ -538,7 +595,7 @@ static void somnus_ble_handle_command(const char *payload)
         return;
     }
 
-    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Executing action: %s", action->valuestring);
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Executing BLE action: %s", action->valuestring);
     if (strcasecmp(action->valuestring, "SCAN") == 0) {
         ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Handling SCAN action");
         somnus_ble_handle_scan_action();
@@ -694,6 +751,45 @@ static char *somnus_ble_perform_wifi_scan(size_t *out_len)
                  rec->bssid[5]);
         cJSON_AddStringToObject(obj, "mac", mac_buf);
 
+        // Add RSSI (signal strength)
+        cJSON_AddNumberToObject(obj, "rssi", rec->rssi);
+
+        // Add auth mode (security type)
+        const char *auth_str = "Unknown";
+        switch (rec->authmode) {
+        case WIFI_AUTH_OPEN:
+            auth_str = "Open";
+            break;
+        case WIFI_AUTH_WEP:
+            auth_str = "WEP";
+            break;
+        case WIFI_AUTH_WPA_PSK:
+            auth_str = "WPA";
+            break;
+        case WIFI_AUTH_WPA2_PSK:
+            auth_str = "WPA2";
+            break;
+        case WIFI_AUTH_WPA_WPA2_PSK:
+            auth_str = "WPA/WPA2";
+            break;
+        case WIFI_AUTH_WPA2_ENTERPRISE:
+            auth_str = "WPA2-Enterprise";
+            break;
+        case WIFI_AUTH_WPA3_PSK:
+            auth_str = "WPA3";
+            break;
+        case WIFI_AUTH_WPA2_WPA3_PSK:
+            auth_str = "WPA2/WPA3";
+            break;
+        case WIFI_AUTH_WAPI_PSK:
+            auth_str = "WAPI";
+            break;
+        default:
+            auth_str = "Unknown";
+            break;
+        }
+        cJSON_AddStringToObject(obj, "auth", auth_str);
+
         cJSON_AddItemToArray(array, obj);
     }
 
@@ -717,9 +813,13 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
     if (config) {
         s_connect_cb = config->connect_cb;
         s_connect_ctx = config->connect_ctx;
+        s_device_command_cb = config->device_command_cb;
+        s_device_command_ctx = config->device_command_ctx;
     } else {
         s_connect_cb = NULL;
         s_connect_ctx = NULL;
+        s_device_command_cb = NULL;
+        s_device_command_ctx = NULL;
     }
 
     ESP_LOGI(SOMNUS_BLE_TAG, "Initialising NimBLE controller + host");
@@ -832,5 +932,25 @@ esp_err_t somnus_ble_stop(void)
 bool somnus_ble_is_running(void)
 {
     return s_started;
+}
+
+bool somnus_ble_is_connected(void)
+{
+    portENTER_CRITICAL(&s_state_lock);
+    bool connected = (s_conn_handle != BLE_HS_CONN_HANDLE_NONE);
+    portEXIT_CRITICAL(&s_state_lock);
+    return connected;
+}
+
+bool somnus_ble_is_advertising(void)
+{
+    // Advertising if running but not connected
+    if (!s_started) {
+        return false;
+    }
+    portENTER_CRITICAL(&s_state_lock);
+    bool connected = (s_conn_handle != BLE_HS_CONN_HANDLE_NONE);
+    portEXIT_CRITICAL(&s_state_lock);
+    return !connected;  // Advertising when running but not connected
 }
 

@@ -28,11 +28,26 @@ typedef bool (*somnus_ble_connect_wifi_cb_t)(const char *ssid,
                                              void *ctx);
 
 /**
+ * @brief Callback invoked when a device command is received via BLE.
+ *
+ * This callback is used to handle device commands (LED, SongChange, SetVolume, etc.)
+ * that are sent via BLE. The payload is a JSON string that can be passed directly
+ * to the action handler.
+ *
+ * @param payload JSON payload string (can be single action or action list)
+ * @param ctx Context pointer passed during configuration
+ * @return ESP_OK on success, error code on failure
+ */
+typedef esp_err_t (*somnus_ble_device_command_cb_t)(const char *payload, void *ctx);
+
+/**
  * @brief Configuration for the Somnus BLE service.
  */
 typedef struct {
     somnus_ble_connect_wifi_cb_t connect_cb; /**< Optional Wi-Fi connect handler. */
     void *connect_ctx;                       /**< Context pointer passed to @p connect_cb. */
+    somnus_ble_device_command_cb_t device_command_cb; /**< Optional device command handler. */
+    void *device_command_ctx;                /**< Context pointer passed to @p device_command_cb. */
 } somnus_ble_config_t;
 
 /**
@@ -54,6 +69,18 @@ esp_err_t somnus_ble_stop(void);
  * @brief Check if the Somnus BLE service is currently advertising/active.
  */
 bool somnus_ble_is_running(void);
+
+/**
+ * @brief Check if a BLE client is currently connected.
+ * @return true if connected, false otherwise.
+ */
+bool somnus_ble_is_connected(void);
+
+/**
+ * @brief Check if BLE is currently advertising.
+ * @return true if advertising (running but not connected), false otherwise.
+ */
+bool somnus_ble_is_advertising(void);
 
 /**
  * @brief Send a notification payload to the connected mobile app.
