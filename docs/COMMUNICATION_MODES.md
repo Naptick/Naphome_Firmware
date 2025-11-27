@@ -162,6 +162,7 @@ Or array of actions:
 **BLE-Specific Actions (lowercase "action"):**
 - `SCAN` - WiFi scan
 - `CONNECT_WIFI` - WiFi connection
+- `READ_SENSORS` - Read current sensor values (instantaneous only)
 
 ## Data Access Patterns
 
@@ -185,9 +186,22 @@ Or array of actions:
 - Real-time polling or subscription to attribute changes
 
 **BLE:**
-- Request current sensor readings via BLE characteristic
-- Device responds with current values only
+- Request current sensor readings via BLE action: `{"action": "READ_SENSORS"}`
+- Device responds with current values in JSON format (matches AWS IoT telemetry format)
 - No historical data stored or accessible
+- Response format:
+  ```json
+  {
+    "timestamp_ms": 1234567890,
+    "sensors": {
+      "sht45": {"temperature_c": 24.1, "humidity_rh": 48.3, "synthetic": false},
+      "sgp40": {"voc_index": 125, "voc_ticks": 1250, "synthetic": false},
+      "scd40": {"co2_ppm": 450.0, "temperature_c": 24.0, "humidity_rh": 48.0, "synthetic": false},
+      "vcnl4040": {"ambient_lux": 200, "proximity": 0, "synthetic": false},
+      "ec10": {"pm2_5_ug_m3": 15.0, "pm1_0_ug_m3": 7.5, "pm10_ug_m3": 22.5, "synthetic": false}
+    }
+  }
+  ```
 
 ## Implementation
 
