@@ -30,53 +30,75 @@ The Flutter app can be configured to use different communication modes via:
 
 **Flow:** `Flutter App → REST API → Backend Server → AWS IoT MQTT → Device`
 
+**Data Support:**
+- ✅ **Historical data** - Backend stores sensor history
+- ✅ **Real-time telemetry** - Live sensor updates
+- ✅ **Time-series queries** - Query historical ranges
+
 **Pros:**
 - ✅ Secure (certificates on backend)
 - ✅ User authentication & device association
 - ✅ Scalable
 - ✅ No certificates needed in app
+- ✅ Historical data storage and retrieval
 
 **Cons:**
 - ❌ Requires backend server
 - ❌ Additional latency
 
-**Use Case:** Production deployments
+**Use Case:** Production deployments, historical analysis
 
 ### 2. Direct AWS IoT
 
 **Flow:** `Flutter App → AWS IoT MQTT (with certs) → Device`
 
+**Data Support:**
+- ✅ **Historical data** - AWS IoT Core can store messages
+- ✅ **Real-time telemetry** - Live sensor updates via MQTT subscription
+- ✅ **Time-series queries** - Query AWS IoT Analytics or Timestream
+
 **Pros:**
 - ✅ Real-time sensor telemetry
 - ✅ Direct connection
 - ✅ Low latency
+- ✅ Historical data via AWS services
 
 **Cons:**
 - ❌ Requires certificates in app
 - ❌ No user management
 - ❌ Certificate distribution complexity
 
-**Use Case:** Development, sensor monitoring
+**Use Case:** Development, sensor monitoring, historical analysis
 
 ### 3. Matter
 
 **Flow:** `Flutter App → Matter Protocol → Device`
 
+**Data Support:**
+- ✅ **Instantaneous values only** - Current sensor readings
+- ❌ **No history** - Matter protocol doesn't store historical data
+
 **Pros:**
 - ✅ Standard protocol
 - ✅ Interoperability
 - ✅ Local network
+- ✅ Low latency (local)
 
 **Cons:**
 - ❌ Requires Matter component
 - ❌ Limited to local network
 - ❌ Setup complexity
+- ❌ No historical data storage
 
-**Use Case:** Matter ecosystem integration
+**Use Case:** Matter ecosystem integration, real-time local control
 
 ### 4. BLE
 
 **Flow:** `Flutter App → BLE GATT → Device`
+
+**Data Support:**
+- ✅ **Instantaneous values only** - Current sensor readings on request
+- ❌ **No history** - BLE doesn't store historical data
 
 **Pros:**
 - ✅ Direct connection (no network needed)
@@ -88,8 +110,9 @@ The Flutter app can be configured to use different communication modes via:
 - ❌ Limited range (~10m)
 - ❌ Lower throughput
 - ❌ Requires device proximity
+- ❌ No historical data storage
 
-**Use Case:** Development, testing, offline scenarios
+**Use Case:** Development, testing, offline scenarios, real-time readings
 
 ## BLE Device Commands
 
@@ -140,6 +163,32 @@ Or array of actions:
 - `SCAN` - WiFi scan
 - `CONNECT_WIFI` - WiFi connection
 
+## Data Access Patterns
+
+### Historical Data (Backend & Direct AWS IoT)
+
+**Backend:**
+- Query historical sensor data via REST API endpoints
+- Time-range queries: `/api/sensors/history?deviceId=X&start=...&end=...`
+- Aggregated data: `/api/sensors/averages?deviceId=X&period=day`
+
+**Direct AWS IoT:**
+- Query AWS IoT Analytics or Timestream for historical data
+- MQTT subscription for real-time updates
+- Can combine with AWS services for time-series analysis
+
+### Instantaneous Values (Matter & BLE)
+
+**Matter:**
+- Read current sensor values via Matter attributes
+- No historical data available
+- Real-time polling or subscription to attribute changes
+
+**BLE:**
+- Request current sensor readings via BLE characteristic
+- Device responds with current values only
+- No historical data stored or accessible
+
 ## Implementation
 
 ### Firmware
@@ -151,6 +200,11 @@ The BLE component automatically detects device commands by checking for:
 
 Device commands are routed to the registered `device_command_cb` callback, which should call `somnus_action_handler_process()`.
 
+For sensor data:
+- **Backend/AWS IoT:** Device publishes telemetry to MQTT topics (stored for history)
+- **Matter:** Device exposes sensor attributes via Matter cluster
+- **BLE:** Device responds to sensor read requests with current values
+
 ### Flutter App
 
 The app should:
@@ -160,6 +214,12 @@ The app should:
    - `aws_iot` → `AwsIotMqttService.publish(...)`
    - `matter` → Matter client (if implemented)
    - `ble` → BLE service (write to RX characteristic)
+
+3. For sensor data:
+   - **Backend:** Query REST API for historical data + subscribe to real-time updates
+   - **Direct AWS IoT:** Query AWS services for history + MQTT subscription for real-time
+   - **Matter:** Read current attributes (no history)
+   - **BLE:** Request current values via BLE read (no history)
 
 ## Migration Path
 
