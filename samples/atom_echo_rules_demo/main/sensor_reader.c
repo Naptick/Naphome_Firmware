@@ -326,6 +326,7 @@ esp_err_t sensor_reader_init(void)
         .master.clk_speed = I2C_FREQ_HZ,
     };
     
+    // I2C Port Allocation: I2C_NUM_1 is used for sensor bus (GPIO 2/1)
     esp_err_t err = i2c_param_config(I2C_PORT, &conf);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "I2C param config failed: %s", esp_err_to_name(err));
@@ -333,9 +334,12 @@ esp_err_t sensor_reader_init(void)
     }
     
     err = i2c_driver_install(I2C_PORT, I2C_MODE_MASTER, 0, 0, 0);
-    if (err != ESP_OK) {
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(TAG, "I2C driver install failed: %s", esp_err_to_name(err));
         return err;
+    }
+    if (err == ESP_ERR_INVALID_STATE) {
+        ESP_LOGI(TAG, "I2C driver already installed, reusing");
     }
     
     s_i2c_initialized = true;

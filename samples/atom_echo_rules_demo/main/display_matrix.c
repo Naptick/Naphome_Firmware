@@ -43,6 +43,7 @@ static esp_err_t configure_backlight_lp5562(bool on)
 {
     // LP5562 is on I2C bus: SDA=GPIO45, SCL=GPIO0 (per schematic)
     // Note: GPIO0 is a strapping pin, but after boot it can be used for I2C
+    // I2C Port Allocation: I2C_NUM_0 is used for LP5562 backlight controller
     ESP_LOGI(DISPLAY_TAG, "Configuring LP5562 backlight via I2C (SDA=GPIO45, SCL=GPIO0, addr=0x%02X)", LP5562_I2C_ADDR);
     
     i2c_config_t conf = {
@@ -60,6 +61,8 @@ static esp_err_t configure_backlight_lp5562(bool on)
         return err;
     }
     
+    // Track if we installed the driver (so we don't delete it if it was already installed)
+    bool driver_installed_by_us = false;
     err = i2c_driver_install(I2C_NUM_0, conf.mode, 0, 0, 0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(DISPLAY_TAG, "i2c_driver_install failed: %s", esp_err_to_name(err));
@@ -70,12 +73,20 @@ static esp_err_t configure_backlight_lp5562(bool on)
         ESP_LOGI(DISPLAY_TAG, "I2C driver already installed, reusing");
     } else {
         ESP_LOGI(DISPLAY_TAG, "I2C driver installed successfully");
+        driver_installed_by_us = true;
     }
     
     // Enable LP5562 chip - following M5Stack official implementation
     // Register 0x00: Enable chip (bit 6 = chip enable)
     uint8_t enable_val = on ? 0x40 : 0x00;  // 0b01000000 = chip enable
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    if (!cmd) {
+        ESP_LOGE(DISPLAY_TAG, "Failed to create I2C command link");
+        if (driver_installed_by_us) {
+            i2c_driver_delete(I2C_NUM_0);
+        }
+        return ESP_ERR_NO_MEM;
+    }
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, (LP5562_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
     i2c_master_write_byte(cmd, LP5562_REG_ENABLE, true);
@@ -86,7 +97,11 @@ static esp_err_t configure_backlight_lp5562(bool on)
     
     if (err != ESP_OK) {
         ESP_LOGW(DISPLAY_TAG, "LP5562 enable write failed: %s (chip may not be present)", esp_err_to_name(err));
-        i2c_driver_delete(I2C_NUM_0);
+        // Don't delete I2C driver if it was already installed by another component
+        // Only delete if we installed it ourselves
+        if (driver_installed_by_us) {
+            i2c_driver_delete(I2C_NUM_0);
+        }
         return err;
     }
     ESP_LOGI(DISPLAY_TAG, "LP5562 enable register written: 0x%02X", enable_val);
@@ -96,6 +111,10 @@ static esp_err_t configure_backlight_lp5562(bool on)
         
         // Register 0x08: Configuration register (M5Stack sets to 0x01)
         cmd = i2c_cmd_link_create();
+        if (!cmd) {
+            ESP_LOGE(DISPLAY_TAG, "Failed to create I2C command link for CONFIG");
+            return ESP_ERR_NO_MEM;
+        }
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (LP5562_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write_byte(cmd, LP5562_REG_CONFIG, true);
@@ -111,6 +130,10 @@ static esp_err_t configure_backlight_lp5562(bool on)
         
         // Register 0x70: LED_MAP (M5Stack sets to 0x00)
         cmd = i2c_cmd_link_create();
+        if (!cmd) {
+            ESP_LOGE(DISPLAY_TAG, "Failed to create I2C command link for LED_MAP");
+            return ESP_ERR_NO_MEM;
+        }
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (LP5562_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write_byte(cmd, LP5562_REG_LED_MAP, true);
@@ -127,6 +150,10 @@ static esp_err_t configure_backlight_lp5562(bool on)
         // Register 0x0E: White channel PWM (brightness) - M5Stack uses 0x0E, not 0x0D
         uint8_t pwm_val = 0xFF;  // Full brightness
         cmd = i2c_cmd_link_create();
+        if (!cmd) {
+            ESP_LOGE(DISPLAY_TAG, "Failed to create I2C command link for W_PWM");
+            return ESP_ERR_NO_MEM;
+        }
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (LP5562_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write_byte(cmd, LP5562_REG_W_PWM, true);
@@ -143,6 +170,10 @@ static esp_err_t configure_backlight_lp5562(bool on)
     } else {
         // Turn off PWM
         cmd = i2c_cmd_link_create();
+        if (!cmd) {
+            ESP_LOGE(DISPLAY_TAG, "Failed to create I2C command link for W_PWM off");
+            return ESP_ERR_NO_MEM;
+        }
         i2c_master_start(cmd);
         i2c_master_write_byte(cmd, (LP5562_I2C_ADDR << 1) | I2C_MASTER_WRITE, true);
         i2c_master_write_byte(cmd, LP5562_REG_W_PWM, true);
@@ -476,8 +507,6 @@ static esp_err_t draw_filled_rect(display_matrix_t *display,
     for (size_t i = 0; i < pixels; ++i) {
         display->tile_buffer[i] = color;
     }
-    ESP_LOGI(DISPLAY_TAG, "Drawing filled rect: (%d,%d) to (%d,%d), color=0x%04X, pixels=%zu", 
-             x0, y0, x1, y1, color, pixels);
     esp_err_t err = esp_lcd_panel_draw_bitmap(display->panel, x0, y0, x1, y1, display->tile_buffer);
     if (err != ESP_OK) {
         ESP_LOGE(DISPLAY_TAG, "esp_lcd_panel_draw_bitmap (fill) failed: %s", esp_err_to_name(err));
@@ -559,18 +588,11 @@ esp_err_t display_matrix_draw_bitmap(display_matrix_t *display,
     // Copy bitmap data to DMA buffer
     memcpy(dma_buffer, bitmap, pixels * sizeof(uint16_t));
     
-    ESP_LOGI(DISPLAY_TAG, "Drawing bitmap: x=%d, y=%d, w=%d, h=%d, pixels=%zu", 
-             x, y, width, height, pixels);
-    ESP_LOGI(DISPLAY_TAG, "First few pixels: 0x%04X, 0x%04X, 0x%04X, 0x%04X", 
-             bitmap[0], bitmap[1], bitmap[2], bitmap[3]);
-
     // Draw the bitmap
     esp_err_t err = esp_lcd_panel_draw_bitmap(display->panel, x, y, x + width, y + height, dma_buffer);
     
     if (err != ESP_OK) {
         ESP_LOGE(DISPLAY_TAG, "esp_lcd_panel_draw_bitmap failed: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGI(DISPLAY_TAG, "Bitmap draw command sent successfully");
     }
     
     free(dma_buffer);

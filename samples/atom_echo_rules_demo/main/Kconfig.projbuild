@@ -84,4 +84,68 @@ config ATOM_ECHO_I2C_PORTA_PORT
     range 0 1
     default 1
 
+config ATOM_ECHO_AUDIO_ENABLED
+    bool "Enable audio playback (ES8388 codec)"
+    default y
+    help
+        Enable audio player for M5Stack Audio Module ES8388
+
+config ATOM_ECHO_AUDIO_I2C_SDA
+    int "Audio codec I2C SDA GPIO"
+    default 38
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2C SDA pin for codec (Internal I2C bus - SYS_SDA)
+
+config ATOM_ECHO_AUDIO_I2C_SCL
+    int "Audio codec I2C SCL GPIO"
+    default 39
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2C SCL pin for codec (Internal I2C bus - SYS_SCL)
+
+config ATOM_ECHO_AUDIO_I2S_BCLK
+    int "Audio codec I2S BCLK GPIO"
+    default 8
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2S bit clock pin (BCLK) - Atom S3R Echo Base GPIO8 (per M5Stack config)
+
+config ATOM_ECHO_AUDIO_I2S_LRCLK
+    int "Audio codec I2S LRCLK GPIO"
+    default 6
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2S word select (LRCK) - Atom S3R Echo Base GPIO6 (per M5Stack config)
+
+config ATOM_ECHO_AUDIO_I2S_DATA
+    int "Audio codec I2S DATA GPIO"
+    default 5
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2S data output (DOUT) - Atom S3R Echo Base GPIO5 (per M5Stack config)
+
+config ATOM_ECHO_AUDIO_I2S_MCLK
+    int "Audio codec I2S MCLK GPIO"
+    default -1
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        I2S master clock (MCLK) - Atom S3R Echo Base uses -1 (not used, per M5Stack config)
+
+config ATOM_ECHO_AUDIO_SAMPLE_RATE
+    int "Audio sample rate (Hz)"
+    default 16000
+    range 8000 48000
+    depends on ATOM_ECHO_AUDIO_ENABLED
+    help
+        Default sample rate for audio playback - Echo Base uses 16000 Hz (per M5Stack config)
+
+config OTA_GITHUB_TOKEN
+    string "GitHub Personal Access Token for OTA updates"
+    default ""
+    help
+        GitHub Personal Access Token (PAT) for accessing GitHub API during OTA updates.
+        Leave empty to use GITHUB_TOKEN environment variable or disable authenticated requests.
+        WARNING: Never commit tokens to version control. Use sdkconfig.local or environment variables.
+
 endmenu
