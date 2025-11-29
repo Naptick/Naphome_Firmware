@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.0/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aws-sdk@2.1491.0/dist/aws-sdk.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.9/dist/amazon-cognito-identity.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -215,6 +216,13 @@
             font-weight: bold;
             color: #667eea;
         }
+        .auth-section {
+            margin-top: 15px;
+        }
+        .auth-section a {
+            color: #667eea;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -224,6 +232,14 @@
 
         <div class="section">
             <h2>Connection Settings</h2>
+            <div class="form-group">
+                <label for="auth-method">Authentication Method:</label>
+                <select id="auth-method" onchange="toggleAuthMethod()">
+                    <option value="cognito">AWS Cognito Identity Pool (Recommended)</option>
+                    <option value="iam">IAM Access Keys</option>
+                    <option value="proxy">Backend Proxy (GitHub Secrets)</option>
+                </select>
+            </div>
             <div class="connection-info">
                 <div class="form-group" style="flex: 1; min-width: 200px;">
                     <label for="endpoint">AWS IoT Endpoint:</label>
@@ -233,13 +249,44 @@
                     <label for="region">AWS Region:</label>
                     <input type="text" id="region" placeholder="ap-south-1" value="ap-south-1">
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
-                    <label for="access-key">Access Key ID:</label>
-                    <input type="text" id="access-key" placeholder="AKIA...">
+            </div>
+            <div id="cognito-auth" class="auth-section">
+                <div class="connection-info">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label for="cognito-identity-pool-id">Cognito Identity Pool ID:</label>
+                        <input type="text" id="cognito-identity-pool-id" placeholder="ap-south-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    </div>
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
-                    <label for="secret-key">Secret Access Key:</label>
-                    <input type="password" id="secret-key" placeholder="Secret key">
+                <div class="status status-info" style="margin-top: 10px;">
+                    <strong>Recommended:</strong> Uses temporary credentials via AWS Cognito. No long-lived keys needed. 
+                    See <a href="AWS_IOT_TEST_README.md#cognito-setup" target="_blank">setup instructions</a>.
+                </div>
+            </div>
+            <div id="iam-auth" class="auth-section hidden">
+                <div class="connection-info">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label for="access-key">Access Key ID:</label>
+                        <input type="text" id="access-key" placeholder="AKIA...">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label for="secret-key">Secret Access Key:</label>
+                        <input type="password" id="secret-key" placeholder="Secret key">
+                    </div>
+                </div>
+                <div class="status status-warning" style="margin-top: 10px;">
+                    <strong>Security Note:</strong> IAM keys are long-lived credentials. Consider using Cognito Identity Pools for better security.
+                </div>
+            </div>
+            <div id="proxy-auth" class="auth-section hidden">
+                <div class="connection-info">
+                    <div class="form-group" style="flex: 1; min-width: 200px;">
+                        <label for="proxy-url">Proxy Endpoint URL:</label>
+                        <input type="text" id="proxy-url" placeholder="https://your-proxy.example.com/iot">
+                    </div>
+                </div>
+                <div class="status status-info" style="margin-top: 10px;">
+                    <strong>Backend Proxy:</strong> Uses a backend service that authenticates with AWS using GitHub Secrets. 
+                    See <a href="AWS_IOT_TEST_README.md#backend-proxy" target="_blank">setup instructions</a>.
                 </div>
             </div>
             <div class="device-selector">
@@ -335,6 +382,13 @@
         document.getElementById('device-select').addEventListener('change', onDeviceSelect);
         document.getElementById('device-custom').addEventListener('input', onDeviceCustom);
 
+        function toggleAuthMethod() {
+            const method = document.getElementById('auth-method').value;
+            document.getElementById('cognito-auth').classList.toggle('hidden', method !== 'cognito');
+            document.getElementById('iam-auth').classList.toggle('hidden', method !== 'iam');
+            document.getElementById('proxy-auth').classList.toggle('hidden', method !== 'proxy');
+        }
+
         function onDeviceSelect() {
             const select = document.getElementById('device-select');
             if (select.value) {
@@ -354,8 +408,7 @@
         async function connect() {
             const endpoint = document.getElementById('endpoint').value.trim();
             const region = document.getElementById('region').value.trim();
-            const accessKey = document.getElementById('access-key').value.trim();
-            const secretKey = document.getElementById('secret-key').value.trim();
+            const authMethod = document.getElementById('auth-method').value;
             const device = currentDevice || document.getElementById('device-select').value || document.getElementById('device-custom').value.trim();
 
             if (!endpoint || !region || !device) {
@@ -374,18 +427,42 @@
             try {
                 const clientId = `web-client-${Date.now()}`;
                 const topic = `device/telemetry/${device}`;
+                let credentials = null;
 
-                // AWS IoT WebSocket connection with SigV4 signing
-                // Using AWS SDK to sign the WebSocket URL
-                if (!accessKey || !secretKey) {
-                    showStatus('AWS credentials required for WebSocket connection. Alternatively, use a backend proxy.', 'error');
-                    return;
+                // Get credentials based on auth method
+                if (authMethod === 'cognito') {
+                    const identityPoolId = document.getElementById('cognito-identity-pool-id').value.trim();
+                    if (!identityPoolId) {
+                        showStatus('Please enter Cognito Identity Pool ID', 'error');
+                        return;
+                    }
+                    credentials = await getCognitoCredentials(identityPoolId, region);
+                } else if (authMethod === 'iam') {
+                    const accessKey = document.getElementById('access-key').value.trim();
+                    const secretKey = document.getElementById('secret-key').value.trim();
+                    if (!accessKey || !secretKey) {
+                        showStatus('Please enter IAM Access Key and Secret Key', 'error');
+                        return;
+                    }
+                    credentials = {
+                        accessKeyId: accessKey,
+                        secretAccessKey: secretKey
+                    };
+                } else if (authMethod === 'proxy') {
+                    const proxyUrl = document.getElementById('proxy-url').value.trim();
+                    if (!proxyUrl) {
+                        showStatus('Please enter proxy endpoint URL', 'error');
+                        return;
+                    }
+                    await connectViaProxy(proxyUrl, endpoint, region, device, topic);
+                    return; // Proxy handles connection differently
                 }
 
                 // Configure AWS credentials
                 AWS.config.update({
-                    accessKeyId: accessKey,
-                    secretAccessKey: secretKey,
+                    accessKeyId: credentials.accessKeyId,
+                    secretAccessKey: credentials.secretAccessKey,
+                    sessionToken: credentials.sessionToken, // For Cognito
                     region: region
                 });
 
@@ -439,54 +516,7 @@
                 };
 
                 mqttClient = mqtt.connect(wsUrl, options);
-
-                mqttClient.on('connect', () => {
-                    showStatus(`Connected! Subscribing to ${topic}...`, 'success');
-                    mqttClient.subscribe(topic, { qos: 0 }, (err) => {
-                        if (err) {
-                            showStatus(`Subscription error: ${err.message}`, 'error');
-                        } else {
-                            showStatus(`Subscribed to ${topic}`, 'success');
-                            document.getElementById('connect-btn').disabled = true;
-                            document.getElementById('disconnect-btn').disabled = false;
-                            document.getElementById('data-section').classList.remove('hidden');
-                            document.getElementById('charts-section').classList.remove('hidden');
-                            document.getElementById('conn-status').textContent = 'Connected';
-                            document.getElementById('conn-status').style.color = '#28a745';
-                            initializeCharts();
-                        }
-                    });
-                });
-
-                mqttClient.on('message', (topic, message) => {
-                    try {
-                        const data = JSON.parse(message.toString());
-                        processSensorData(data);
-                        messageCount++;
-                        document.getElementById('message-count').textContent = messageCount;
-                        document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
-                    } catch (error) {
-                        console.error('Error parsing message:', error);
-                    }
-                });
-
-                mqttClient.on('error', (error) => {
-                    showStatus(`Connection error: ${error.message}`, 'error');
-                    document.getElementById('conn-status').textContent = 'Error';
-                    document.getElementById('conn-status').style.color = '#dc3545';
-                });
-
-                mqttClient.on('close', () => {
-                    showStatus('Connection closed', 'warning');
-                    document.getElementById('conn-status').textContent = 'Disconnected';
-                    document.getElementById('conn-status').style.color = '#dc3545';
-                });
-
-                mqttClient.on('offline', () => {
-                    showStatus('Connection offline', 'warning');
-                    document.getElementById('conn-status').textContent = 'Offline';
-                    document.getElementById('conn-status').style.color = '#ffc107';
-                });
+                setupMqttHandlers(topic);
 
             } catch (error) {
                 showStatus(`Connection failed: ${error.message}`, 'error');
@@ -638,8 +668,123 @@
             status.textContent = message;
         }
 
+        // Get temporary credentials from Cognito Identity Pool
+        async function getCognitoCredentials(identityPoolId, region) {
+            showStatus('Getting temporary credentials from Cognito...', 'info');
+            
+            // Initialize Cognito Identity
+            AWS.config.region = region;
+            const cognitoIdentity = new AWS.CognitoIdentity({ region: region });
+            
+            // Get ID from identity pool
+            const getIdParams = { IdentityPoolId: identityPoolId };
+            const identityIdResponse = await cognitoIdentity.getId(getIdParams).promise();
+            const identityId = identityIdResponse.IdentityId;
+            
+            // Get credentials for the identity
+            const getCredentialsParams = { IdentityId: identityId };
+            const credentialsResponse = await cognitoIdentity.getCredentialsForIdentity(getCredentialsParams).promise();
+            
+            return {
+                accessKeyId: credentialsResponse.Credentials.AccessKeyId,
+                secretAccessKey: credentialsResponse.Credentials.SecretKey,
+                sessionToken: credentialsResponse.Credentials.SessionToken
+            };
+        }
+
+        // Connect via backend proxy (uses GitHub Secrets)
+        async function connectViaProxy(proxyUrl, endpoint, region, device, topic) {
+            showStatus('Connecting via backend proxy...', 'info');
+            
+            try {
+                // The proxy should provide a WebSocket URL or handle MQTT connection
+                // This is a placeholder - implement based on your proxy API
+                const response = await fetch(`${proxyUrl}/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoint: endpoint,
+                        region: region,
+                        device: device,
+                        topic: topic
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Proxy error: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.websocketUrl) {
+                    // Proxy provides signed WebSocket URL
+                    const mqtt = window.mqtt;
+                    mqttClient = mqtt.connect(data.websocketUrl, {
+                        clientId: `web-client-${Date.now()}`,
+                        protocol: 'wss'
+                    });
+                    setupMqttHandlers(topic);
+                } else {
+                    throw new Error('Proxy did not return websocketUrl');
+                }
+            } catch (error) {
+                showStatus(`Proxy connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        function setupMqttHandlers(topic) {
+            mqttClient.on('connect', () => {
+                showStatus(`Connected! Subscribing to ${topic}...`, 'success');
+                mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+                    if (err) {
+                        showStatus(`Subscription error: ${err.message}`, 'error');
+                    } else {
+                        showStatus(`Subscribed to ${topic}`, 'success');
+                        document.getElementById('connect-btn').disabled = true;
+                        document.getElementById('disconnect-btn').disabled = false;
+                        document.getElementById('data-section').classList.remove('hidden');
+                        document.getElementById('charts-section').classList.remove('hidden');
+                        document.getElementById('conn-status').textContent = 'Connected';
+                        document.getElementById('conn-status').style.color = '#28a745';
+                        initializeCharts();
+                    }
+                });
+            });
+
+            mqttClient.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    processSensorData(data);
+                    messageCount++;
+                    document.getElementById('message-count').textContent = messageCount;
+                    document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+                } catch (error) {
+                    console.error('Error parsing message:', error);
+                }
+            });
+
+            mqttClient.on('error', (error) => {
+                showStatus(`Connection error: ${error.message}`, 'error');
+                document.getElementById('conn-status').textContent = 'Error';
+                document.getElementById('conn-status').style.color = '#dc3545';
+            });
+
+            mqttClient.on('close', () => {
+                showStatus('Connection closed', 'warning');
+                document.getElementById('conn-status').textContent = 'Disconnected';
+                document.getElementById('conn-status').style.color = '#dc3545';
+            });
+
+            mqttClient.on('offline', () => {
+                showStatus('Connection offline', 'warning');
+                document.getElementById('conn-status').textContent = 'Offline';
+                document.getElementById('conn-status').style.color = '#ffc107';
+            });
+        }
+
         // Initialize device selector
         onDeviceSelect();
+        toggleAuthMethod(); // Initialize auth method display
     </script>
 </body>
 </html>

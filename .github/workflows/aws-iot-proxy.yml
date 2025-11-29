@@ -1,0 +1,45 @@
+name: Deploy AWS IoT Proxy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/aws-iot-proxy.yml'
+      - 'docs/aws-iot-proxy-example.js'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-proxy:
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default - enable when ready to deploy
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          cd docs
+          npm init -y
+          npm install express aws-sdk mqtt cors
+
+      - name: Deploy to platform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+          AWS_IOT_ENDPOINT: ${{ secrets.AWS_IOT_ENDPOINT }}
+        run: |
+          echo "Proxy deployment would go here"
+          echo "Example platforms: Heroku, Railway, Render, Vercel, AWS Lambda"
+          echo "See AWS_IOT_TEST_README.md for deployment instructions"

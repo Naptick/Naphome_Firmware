@@ -22,6 +22,57 @@ This web-based tool allows you to monitor sensor data from Naphome devices conne
 
 ## Setup
 
+### Option 1: AWS Cognito Identity Pool Setup (Recommended)
+
+1. **Create Identity Pool:**
+   - AWS Console → Cognito → Identity Pools → Create
+   - Enable "Enable access to unauthenticated identities"
+   - Note the Identity Pool ID (format: `region:uuid`)
+
+2. **Configure IAM Role:**
+   - Attach IAM role with IoT permissions:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "iot:Connect",
+           "iot:Subscribe",
+           "iot:Receive"
+         ],
+         "Resource": [
+           "arn:aws:iot:REGION:ACCOUNT:client/*",
+           "arn:aws:iot:REGION:ACCOUNT:topicfilter/device/telemetry/*"
+         ]
+       }
+     ]
+   }
+   ```
+
+3. **Use in Test Page:**
+   - Select "AWS Cognito Identity Pool" method
+   - Enter Identity Pool ID
+   - No credentials needed!
+
+### Option 2: Backend Proxy with GitHub Secrets
+
+1. **Add GitHub Secrets:**
+   - Repository Settings → Secrets and variables → Actions
+   - Add: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_IOT_ENDPOINT`
+
+2. **Deploy Proxy:**
+   - See `aws-iot-proxy-example.js` for implementation
+   - Deploy to Heroku, Railway, Render, Vercel, or AWS Lambda
+   - Set environment variables from GitHub Secrets
+
+3. **Use in Test Page:**
+   - Select "Backend Proxy" method
+   - Enter proxy endpoint URL
+
+### Option 3: IAM Access Keys (Testing Only)
+
 ### 1. AWS IoT Policy Configuration
 
 Create or update an IAM policy that allows MQTT WebSocket connections:
@@ -63,26 +114,100 @@ Create or update an IAM policy that allows MQTT WebSocket connections:
 7. Wait for connection and subscription confirmation
 8. Sensor data will appear in real-time with history graphs
 
+## Authentication Methods
+
+The page supports three authentication methods:
+
+### 1. AWS Cognito Identity Pool (Recommended) ⭐
+
+**Best for production** - Uses temporary credentials, no long-lived keys.
+
+1. Create a Cognito Identity Pool in AWS Console
+2. Configure it to allow unauthenticated access (or use authenticated identities)
+3. Attach an IAM role with IoT permissions
+4. Enter the Identity Pool ID in the page
+
+**Setup:**
+```bash
+# In AWS Console:
+# 1. Cognito → Identity Pools → Create
+# 2. Enable "Enable access to unauthenticated identities"
+# 3. Create IAM role with IoT permissions
+# 4. Copy Identity Pool ID (format: region:uuid)
+```
+
+### 2. IAM Access Keys
+
+**For testing only** - Requires entering credentials in browser.
+
+1. Create IAM user with IoT permissions
+2. Generate access key
+3. Enter credentials in the page
+
+⚠️ **Security Warning**: Credentials are visible in browser. Use only for testing.
+
+### 3. Backend Proxy (GitHub Secrets) 🔒
+
+**Best for GitHub Pages** - Credentials stored in GitHub Secrets, never exposed to browser.
+
+The proxy server uses GitHub Secrets for AWS authentication and provides signed WebSocket URLs to the client.
+
+**Setup Steps:**
+
+1. **Add GitHub Secrets:**
+   - Go to repository Settings → Secrets and variables → Actions
+   - Add secrets:
+     - `AWS_ACCESS_KEY_ID`
+     - `AWS_SECRET_ACCESS_KEY`
+     - `AWS_REGION` (optional, defaults to ap-south-1)
+     - `AWS_IOT_ENDPOINT` (optional)
+
+2. **Deploy Proxy Server:**
+   
+   **Option A: Deploy to Heroku/Railway/Render:**
+   ```bash
+   # Clone and deploy the proxy example
+   git clone <repo>
+   cd docs
+   npm install express aws-sdk mqtt cors
+   # Deploy using your platform's CLI
+   ```
+
+   **Option B: Use AWS Lambda + API Gateway:**
+   - Package the proxy code as a Lambda function
+   - Create API Gateway endpoint
+   - Configure environment variables from GitHub Secrets
+
+   **Option C: Use Vercel Serverless Functions:**
+   - Create `api/iot-proxy.js` in your repo
+   - Vercel will automatically deploy as serverless function
+
+3. **Update Proxy URL:**
+   - Enter your deployed proxy URL in the test page
+   - Example: `https://your-app.herokuapp.com` or `https://your-api.vercel.app/api/iot-proxy`
+
+**Proxy API:**
+- `POST /connect` - Returns signed WebSocket URL
+  ```json
+  {
+    "endpoint": "xxx-ats.iot.region.amazonaws.com",
+    "region": "ap-south-1",
+    "device": "SOMNUS_XXXXXXXXXXXX",
+    "topic": "device/telemetry/SOMNUS_XXXXXXXXXXXX"
+  }
+  ```
+
+See `aws-iot-proxy-example.js` for a complete implementation example.
+
 ## Security Notes
 
-⚠️ **Important**: This page requires entering AWS credentials in the browser. For production use:
+⚠️ **Important**: 
 
-1. **Use a Backend Proxy**: Create a backend service that handles AWS authentication
-2. **Use AWS Cognito**: Implement Cognito Identity Pools for temporary credentials
-3. **Restrict IAM Policy**: Use least-privilege IAM policies
+1. **Cognito Identity Pools** (Recommended): No credentials in browser, uses temporary tokens
+2. **Backend Proxy**: Credentials stored in GitHub Secrets, never exposed
+3. **IAM Keys**: Only for testing - credentials visible in browser
 4. **HTTPS Only**: Always use HTTPS when entering credentials
-
-## Alternative: Backend Proxy
-
-For production, consider creating a backend proxy that:
-- Handles AWS authentication server-side
-- Exposes a WebSocket endpoint for the frontend
-- Manages MQTT subscriptions and forwards messages
-
-Example architecture:
-```
-Browser → Backend WebSocket → AWS IoT MQTT → Device
-```
+5. **Restrict IAM Policy**: Use least-privilege IAM policies
 
 ## Troubleshooting
 
