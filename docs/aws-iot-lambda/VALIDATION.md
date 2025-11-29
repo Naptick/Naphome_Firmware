@@ -29,50 +29,40 @@
   - AWSLambdaBasicExecutionRole
   - IoT access policy (inline)
 
-## ⚠️ Current Issue
+## ✅ Status: FIXED
 
-**Status**: API Gateway returns 500 Internal Server Error
+**Previous Issue**: API Gateway returned 500 Internal Server Error
 
-**Symptoms**:
-- Lambda function is deployed and active
-- Environment variables are configured
-- API Gateway integration is correct
-- No CloudWatch logs appearing (suggests function may be failing before logging)
+**Root Cause**: Missing `aws-sdk` module in Node.js 18.x Lambda runtime
 
-**Possible Causes**:
-1. Runtime error in Lambda code (syntax or logic error)
-2. Missing dependencies in package.json
-3. CloudWatch logging permissions issue
-4. Event format mismatch between API Gateway and Lambda
+**Solution**: Removed AWS SDK dependency and use only Node.js built-in `crypto` module for SigV4 signing
 
-## 🔍 Next Steps for Debugging
+**Current Status**: ✅ Lambda is working correctly and returns signed WebSocket URLs
 
-1. **Check CloudWatch Logs**:
-   ```bash
-   aws logs tail /aws/lambda/aws-iot-mqtt-proxy --follow --region ap-south-1
-   ```
+## ✅ Testing
 
-2. **Test Lambda Directly**:
-   ```bash
-   aws lambda invoke \
-     --function-name aws-iot-mqtt-proxy \
-     --region ap-south-1 \
-     --payload '{"httpMethod":"POST","body":"{\"endpoint\":\"test\",\"region\":\"test\",\"device\":\"test\",\"topic\":\"test\"}"}' \
-     /tmp/response.json
-   ```
+**Test the Lambda**:
+```bash
+curl -X POST https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "endpoint": "a3ag0lenm5av45-ats.iot.ap-south-1.amazonaws.com",
+    "region": "ap-south-1",
+    "device": "SOMNUS_F09E9E3263A4",
+    "topic": "device/telemetry/SOMNUS_F09E9E3263A4"
+  }'
+```
 
-3. **Verify Package Dependencies**:
-   - Check if `aws-sdk` is available in Lambda runtime (it should be)
-   - Verify `crypto` module is available (Node.js built-in)
-
-4. **Check API Gateway Integration**:
-   ```bash
-   aws apigateway get-integration \
-     --rest-api-id 2ushw6qnzf \
-     --resource-id <resource-id> \
-     --http-method POST \
-     --region ap-south-1
-   ```
+**Expected Response**:
+```json
+{
+  "websocketUrl": "wss://a3ag0lenm5av45-ats.iot.ap-south-1.amazonaws.com/mqtt?X-Amz-Algorithm=...",
+  "topic": "device/telemetry/SOMNUS_F09E9E3263A4",
+  "device": "SOMNUS_F09E9E3263A4",
+  "endpoint": "a3ag0lenm5av45-ats.iot.ap-south-1.amazonaws.com",
+  "region": "ap-south-1"
+}
+```
 
 ## 📋 Test Page Configuration
 
@@ -89,6 +79,8 @@ The test page is configured with:
 4. ✅ Environment variables configured
 5. ✅ Test page updated with API Gateway URL
 6. ✅ Code pushed to repository
+7. ✅ Lambda generates signed WebSocket URLs successfully
+8. ✅ API Gateway returns 200 OK responses
 
 ## 🔧 Manual Testing
 
