@@ -4,6 +4,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_heap_caps.h"
 #include "sdkconfig.h"
 
 #if CONFIG_KVA_SPOTIFY_USE_CSPOT
@@ -261,13 +262,58 @@ class SpotifyPlayerTask : public bell::Task {
 
         // Check available heap before creating HTTP server (civetweb needs significant memory)
         size_t free_heap = esp_get_free_heap_size();
-        ESP_LOGI(TAG, "Available heap before HTTP server: %zu bytes", free_heap);
-        if (free_heap < 16384) {  // Need at least 16KB free
-            ESP_LOGE(TAG, "Insufficient memory (%zu bytes) to start HTTP server for zeroconf", free_heap);
+        size_t min_free_heap = esp_get_minimum_free_heap_size();
+        size_t largest_block = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+        
+        ESP_LOGI(TAG, "Memory before HTTP server - Free: %zu bytes, Min: %zu bytes, Largest block: %zu bytes", 
+                 free_heap, min_free_heap, largest_block);
+        
+        // CivetServer needs at least 32KB free (increased from 16KB)
+        if (free_heap < 32768 || largest_block < 16384) {
+            ESP_LOGE(TAG, "Insufficient memory to start HTTP server - Free: %zu, Largest block: %zu", 
+                     free_heap, largest_block);
+            return false;
+        }
+        
+        // Force garbage collection by allocating/deallocating to consolidate memory
+        void* temp = malloc(4096);
+        if (temp) {
+            free(temp);
+            vTaskDelay(pdMS_TO_TICKS(100)); // Give system time to consolidate
+        }
+        
+        // Re-check after consolidation
+        free_heap = esp_get_free_heap_size();
+        largest_block = heap_caps_get_largest_free_block(MALLOC_CAP_DEFAULT);
+        ESP_LOGI(TAG, "Memory after consolidation - Free: %zu bytes, Largest block: %zu bytes", 
+                 free_heap, largest_block);
+        
+        if (free_heap < 32768 || largest_block < 16384) {
+            ESP_LOGE(TAG, "Still insufficient memory after consolidation - Free: %zu, Largest block: %zu", 
+                     free_heap, largest_block);
             return false;
         }
 
-        auto server = std::make_unique<bell::BellHTTPServer>(http_port);
+        ESP_LOGI(TAG, "Creating BellHTTPServer on port %d...", http_port);
+        std::unique_ptr<bell::BellHTTPServer> server;
+        try {
+            server = std::make_unique<bell::BellHTTPServer>(http_port);
+            if (!server) {
+                ESP_LOGE(TAG, "Failed to create BellHTTPServer: null pointer");
+                return false;
+            }
+        } catch (const std::bad_alloc& e) {
+            ESP_LOGE(TAG, "Failed to create BellHTTPServer: out of memory (bad_alloc)");
+            return false;
+        } catch (const std::exception& e) {
+            ESP_LOGE(TAG, "Failed to create BellHTTPServer: %s", e.what());
+            return false;
+        } catch (...) {
+            ESP_LOGE(TAG, "Failed to create BellHTTPServer: unknown exception");
+            return false;
+        }
+        
+        ESP_LOGI(TAG, "BellHTTPServer created successfully");
         server->registerGet(
             "/spotify_info",
             [&server, blob](struct mg_connection *conn) {
