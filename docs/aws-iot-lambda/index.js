@@ -8,13 +8,7 @@
  * - POST /connect - Returns signed WebSocket URL for MQTT connection
  */
 
-const AWS = require('aws-sdk');
 const crypto = require('crypto');
-
-// Initialize AWS SDK - uses IAM role credentials automatically
-// Region from environment variable (set by Lambda) or default
-const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1';
-AWS.config.update({ region: region });
 
 /**
  * Generate signed WebSocket URL for AWS IoT MQTT connection
@@ -28,17 +22,9 @@ async function generateSignedWebSocketUrl(endpoint, region) {
         accessKeyId = process.env.IOT_ACCESS_KEY_ID;
         secretAccessKey = process.env.IOT_SECRET_ACCESS_KEY;
     } else {
-        // Fallback to IAM role credentials
-        // Use default credential chain (Lambda execution role)
-        const credentials = await new Promise((resolve, reject) => {
-            const chain = new AWS.CredentialProviderChain();
-            chain.resolve((err, creds) => {
-                if (err) reject(err);
-                else resolve(creds);
-            });
-        });
-        accessKeyId = credentials.accessKeyId;
-        secretAccessKey = credentials.secretAccessKey;
+        // Fallback: Try to get from Lambda execution role via STS
+        // For now, throw error if credentials not in environment
+        throw new Error('IOT_ACCESS_KEY_ID and IOT_SECRET_ACCESS_KEY environment variables are required');
     }
     
     // Generate timestamp in format: YYYYMMDDTHHmmssZ
@@ -83,33 +69,34 @@ async function generateSignedWebSocketUrl(endpoint, region) {
  * Lambda handler
  */
 exports.handler = async (event) => {
-    try {
-        console.log('=== Lambda invoked ===');
-        console.log('Event received:', JSON.stringify(event));
-        console.log('Event type:', typeof event);
-        console.log('Event keys:', Object.keys(event || {}));
-    } catch (e) {
-        console.error('Error in initial logging:', e);
-    }
-    
-    // Handle CORS preflight
-    if (event && event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Content-Type',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS'
-            },
-            body: ''
-        };
-    }
+    console.log('=== Lambda handler invoked ===');
+    console.log('Event:', JSON.stringify(event, null, 2));
     
     try {
+        // Handle CORS preflight
+        if (event && event.httpMethod === 'OPTIONS') {
+            console.log('Handling OPTIONS request');
+            return {
+                statusCode: 200,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Allow-Methods': 'POST, OPTIONS'
+                },
+                body: ''
+            };
+        }
+        
         // Parse request body
         let body;
         try {
-            body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+            if (typeof event.body === 'string') {
+                body = JSON.parse(event.body);
+            } else if (event.body) {
+                body = event.body;
+            } else {
+                body = event; // API Gateway might pass event directly
+            }
         } catch (e) {
             console.error('Body parse error:', e);
             return {
@@ -125,11 +112,16 @@ exports.handler = async (event) => {
             };
         }
         
-        console.log('Parsed body:', JSON.stringify(body));
+        console.log('Parsed body:', JSON.stringify(body, null, 2));
         
-        const { endpoint, region, device, topic } = body;
+        // Extract parameters
+        const endpoint = body.endpoint;
+        const region = body.region || 'ap-south-1';
+        const device = body.device;
+        const topic = body.topic;
         
-        if (!endpoint || !region || !device || !topic) {
+        if (!endpoint || !device || !topic) {
+            console.error('Missing required parameters:', { endpoint: !!endpoint, device: !!device, topic: !!topic });
             return {
                 statusCode: 400,
                 headers: {
@@ -137,13 +129,13 @@ exports.handler = async (event) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    error: 'Missing required parameters: endpoint, region, device, topic',
-                    received: { endpoint: !!endpoint, region: !!region, device: !!device, topic: !!topic }
+                    error: 'Missing required parameters: endpoint, device, topic',
+                    received: { endpoint: !!endpoint, device: !!device, topic: !!topic }
                 })
             };
         }
         
-        console.log('Generating signed URL for:', endpoint, region);
+        console.log('Generating signed URL for:', { endpoint, region, device, topic });
         
         // Generate signed WebSocket URL
         const websocketUrl = await generateSignedWebSocketUrl(endpoint, region);
@@ -166,7 +158,7 @@ exports.handler = async (event) => {
         };
     } catch (error) {
         console.error('Handler error:', error);
-        console.error('Stack:', error.stack);
+        console.error('Error stack:', error.stack);
         return {
             statusCode: 500,
             headers: {
@@ -175,7 +167,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({ 
                 error: error.message,
-                stack: error.stack
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             })
         };
     }
