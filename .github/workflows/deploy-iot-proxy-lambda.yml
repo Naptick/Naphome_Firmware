@@ -1,0 +1,127 @@
+name: Deploy AWS IoT Proxy Lambda
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/aws-iot-lambda/**'
+      - '.github/workflows/deploy-iot-proxy-lambda.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Package Lambda function
+        working-directory: docs/aws-iot-lambda
+        run: |
+          zip -q function.zip index.js package.json
+
+      - name: Create IAM role (if needed)
+        run: |
+          ROLE_NAME="aws-iot-proxy-lambda-role"
+          if ! aws iam get-role --role-name $ROLE_NAME &>/dev/null; then
+            echo "Creating IAM role..."
+            cat > /tmp/trust-policy.json <<'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": "lambda.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+              }
+            ]
+          }
+          EOF
+            aws iam create-role \
+              --role-name $ROLE_NAME \
+              --assume-role-policy-document file:///tmp/trust-policy.json
+            
+            aws iam attach-role-policy \
+              --role-name $ROLE_NAME \
+              --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+            
+            echo "Waiting for role to be ready..."
+            sleep 10
+          fi
+
+      - name: Deploy Lambda function
+        working-directory: docs/aws-iot-lambda
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+          AWS_IOT_ENDPOINT: ${{ secrets.AWS_IOT_ENDPOINT }}
+        run: |
+          FUNCTION_NAME="aws-iot-mqtt-proxy"
+          REGION="${AWS_REGION}"
+          ROLE_NAME="aws-iot-proxy-lambda-role"
+          ROLE_ARN=$(aws iam get-role --role-name $ROLE_NAME --query 'Role.Arn' --output text)
+          
+          if aws lambda get-function --function-name $FUNCTION_NAME --region $REGION &>/dev/null; then
+            echo "Updating existing function..."
+            aws lambda update-function-code \
+              --function-name $FUNCTION_NAME \
+              --zip-file fileb://function.zip \
+              --region $REGION
+            
+            aws lambda update-function-configuration \
+              --function-name $FUNCTION_NAME \
+              --environment "Variables={AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_REGION=${REGION},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --region $REGION \
+              --timeout 30 \
+              --memory-size 128
+          else
+            echo "Creating new function..."
+            aws lambda create-function \
+              --function-name $FUNCTION_NAME \
+              --runtime nodejs18.x \
+              --role $ROLE_ARN \
+              --handler index.handler \
+              --zip-file fileb://function.zip \
+              --timeout 30 \
+              --memory-size 128 \
+              --environment "Variables={AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_REGION=${REGION},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --region $REGION
+          fi
+
+      - name: Setup API Gateway
+        working-directory: docs/aws-iot-lambda
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+        run: |
+          chmod +x setup-api-gateway.sh
+          ./setup-api-gateway.sh aws-iot-mqtt-proxy ${AWS_REGION}
+
+      - name: Output API URL
+        run: |
+          REGION="${{ secrets.AWS_REGION || 'ap-south-1' }}"
+          API_NAME="aws-iot-proxy-api"
+          API_ID=$(aws apigateway get-rest-apis --region $REGION --query "items[?name=='${API_NAME}'].id" --output text)
+          API_URL="https://${API_ID}.execute-api.${REGION}.amazonaws.com/prod/connect"
+          echo "::notice::API Gateway URL: $API_URL"
+          echo "API_URL=$API_URL" >> $GITHUB_OUTPUT

@@ -1,0 +1,11 @@
+{
+  "name": "aws-iot-proxy-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for AWS IoT MQTT WebSocket proxy",
+  "main": "index.js",
+  "scripts": {
+    "package": "zip -r function.zip index.js package.json node_modules"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
