@@ -23,6 +23,7 @@
 #include "esp_gap_ble_api.h"
 #endif
 #include "esp_wifi.h"
+#include "esp_netif.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -30,8 +31,11 @@
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
 #include "host/ble_hs.h"
+#include "host/ble_hs_mbuf.h"
 #include "host/ble_uuid.h"
 #include "host/util/util.h"
+#include "host/ble_gatt.h"
+#include "nimble/ble.h"
 #include "store/ram/ble_store_ram.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
@@ -50,6 +54,8 @@
 
 #define SOMNUS_BLE_NOTIFY_CHUNK 20
 #define SOMNUS_WIFI_SCAN_MAX_AP 20
+#define SOMNUS_BLE_LOG_MAX_ENTRIES 100
+#define SOMNUS_BLE_LOG_MSG_MAX_LEN 256
 
 #define SOMNUS_MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -57,6 +63,29 @@ typedef struct {
     size_t len;
     char payload[SOMNUS_BLE_CMD_MAX_LEN + 1];
 } somnus_ble_cmd_msg_t;
+
+// BLE log entry
+typedef enum {
+    BLE_LOG_CONNECT,
+    BLE_LOG_DISCONNECT,
+    BLE_LOG_RX,
+    BLE_LOG_TX,
+    BLE_LOG_SUBSCRIBE,
+} ble_log_type_t;
+
+typedef struct {
+    ble_log_type_t type;
+    uint32_t timestamp_ms;
+    char message[SOMNUS_BLE_LOG_MSG_MAX_LEN];
+} ble_log_entry_t;
+
+// BLE log ring buffer
+typedef struct {
+    ble_log_entry_t entries[SOMNUS_BLE_LOG_MAX_ENTRIES];
+    size_t head;
+    size_t count;
+    portMUX_TYPE lock;
+} ble_log_buffer_t;
 
 static somnus_ble_connect_wifi_cb_t s_connect_cb;
 static void *s_connect_ctx;
@@ -72,6 +101,16 @@ static size_t s_tx_buffer_len = 0;
 static TaskHandle_t s_cmd_task;
 static QueueHandle_t s_cmd_queue;
 static portMUX_TYPE s_state_lock = portMUX_INITIALIZER_UNLOCKED;
+static ble_log_buffer_t s_ble_log = {0};
+
+// Queue for posting notification work to the NimBLE host task
+typedef struct {
+    uint16_t conn_handle;
+    uint16_t val_handle;
+    struct os_mbuf *om;
+} notify_work_t;
+
+static QueueHandle_t s_notify_queue = NULL;
 
 /* UUIDs in little-endian format for NimBLE macros */
 #define SOMNUS_UUID128_SERVICE BLE_UUID128_DECLARE(0x9E, 0xCA, 0xDC, 0x24, 0x0E, 0xE5, 0xA9, 0xE0, 0x93, 0xF3, 0xA3, 0xB5, 0x01, 0x00, 0x40, 0x6E)
@@ -98,6 +137,41 @@ static int somnus_ble_tx_access_cb(uint16_t conn_handle,
 static esp_err_t somnus_ble_send_chunked(const char *message,
                                          TickType_t inter_chunk_delay);
 static char *somnus_ble_perform_wifi_scan(size_t *out_len);
+
+// BLE log functions
+static void ble_log_init(void)
+{
+    s_ble_log.head = 0;
+    s_ble_log.count = 0;
+    portMUX_TYPE tmp = portMUX_INITIALIZER_UNLOCKED;
+    s_ble_log.lock = tmp;
+}
+
+static void ble_log_add(ble_log_type_t type, const char *message)
+{
+    if (!message) {
+        return;
+    }
+    
+    portENTER_CRITICAL(&s_ble_log.lock);
+    
+    size_t idx = (s_ble_log.head + s_ble_log.count) % SOMNUS_BLE_LOG_MAX_ENTRIES;
+    ble_log_entry_t *entry = &s_ble_log.entries[idx];
+    
+    entry->type = type;
+    entry->timestamp_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    strncpy(entry->message, message, SOMNUS_BLE_LOG_MSG_MAX_LEN - 1);
+    entry->message[SOMNUS_BLE_LOG_MSG_MAX_LEN - 1] = '\0';
+    
+    if (s_ble_log.count < SOMNUS_BLE_LOG_MAX_ENTRIES) {
+        s_ble_log.count++;
+    } else {
+        // Ring buffer full, overwrite oldest entry
+        s_ble_log.head = (s_ble_log.head + 1) % SOMNUS_BLE_LOG_MAX_ENTRIES;
+    }
+    
+    portEXIT_CRITICAL(&s_ble_log.lock);
+}
 
 static const struct ble_gatt_chr_def somnus_chr_defs[] = {
     {
@@ -145,11 +219,11 @@ static void somnus_ble_gatt_register_cb(struct ble_gatt_register_ctxt *ctxt, voi
             chr_type = "RX (write)";
         }
         ESP_LOGI(SOMNUS_BLE_TAG,
-                 "[BLE] Registered characteristic %s (%s) handle=%u flags=0x%04x",
+                 "[BLE] Registered characteristic %s (%s) handle=%u flags=0x%04lx",
                  uuid_str,
                  chr_type,
                  ctxt->chr.val_handle,
-                 ctxt->chr.chr_def->flags);
+                 (unsigned long)ctxt->chr.chr_def->flags);
         break;
     default:
         ESP_LOGD(SOMNUS_BLE_TAG, "[BLE] GATT register op=%d", ctxt->op);
@@ -186,6 +260,12 @@ static int somnus_ble_rx_access_cb(uint16_t conn_handle,
     msg.payload[msg.len] = '\0';
 
     ESP_LOGI(SOMNUS_BLE_TAG, "[BLE RX] payload[%zu]: %.*s", msg.len, (int)msg.len, msg.payload);
+    
+    // Log RX event
+    char log_msg[SOMNUS_BLE_LOG_MSG_MAX_LEN];
+    size_t payload_display_len = msg.len > 80 ? 80 : msg.len;
+    snprintf(log_msg, sizeof(log_msg), "RX[%zu]: %.*s", msg.len, (int)payload_display_len, msg.payload);
+    ble_log_add(BLE_LOG_RX, log_msg);
     
     // Log hex dump for non-printable or long messages
     if (msg.len > 64 || (msg.len > 0 && !strnlen(msg.payload, msg.len))) {
@@ -285,11 +365,19 @@ static esp_err_t somnus_ble_send_chunked(const char *message,
     portEXIT_CRITICAL(&s_state_lock);
 
     if (!notify_enabled || conn == BLE_HS_CONN_HANDLE_NONE) {
-        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE TX] cannot send: notify=%d conn=%u", notify_enabled, conn);
+        // This is normal if no client is connected or hasn't subscribed yet
+        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE TX] cannot send (no client/subscription): notify=%d conn=%u", 
+                 notify_enabled, conn);
         return ESP_ERR_INVALID_STATE;
     }
 
     ESP_LOGI(SOMNUS_BLE_TAG, "[BLE TX] sending message[%zu]: %.*s", len, (int)(len > 128 ? 128 : len), message);
+    
+    // Log TX event
+    char log_msg[SOMNUS_BLE_LOG_MSG_MAX_LEN];
+    size_t msg_display_len = len > 80 ? 80 : len;
+    snprintf(log_msg, sizeof(log_msg), "TX[%zu]: %.*s", len, (int)msg_display_len, message);
+    ble_log_add(BLE_LOG_TX, log_msg);
     
     const uint8_t *data = (const uint8_t *)message;
     size_t total_sent = 0;
@@ -311,15 +399,42 @@ static esp_err_t somnus_ble_send_chunked(const char *message,
         s_tx_buffer_len = chunk_len;
         portEXIT_CRITICAL(&s_state_lock);
 
-        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE TX] Stored chunk[%zu] len=%zu, calling ble_gatts_chr_updated(handle=%u)", 
-                 chunk_num, chunk_len, s_tx_val_handle);
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE TX] Stored chunk[%zu] len=%zu, sending notification (conn=%u, handle=%u)", 
+                 chunk_num, chunk_len, conn, s_tx_val_handle);
 
-        // Trigger notification by updating characteristic
-        // This will cause NimBLE to call the access callback to read the value
-        ble_gatts_chr_updated(s_tx_val_handle);
+        // Allocate mbuf with the chunk data
+        // Note: ble_gatts_notify_custom consumes the mbuf on success, so we don't free it
+        struct os_mbuf *om = ble_hs_mbuf_from_flat(s_tx_buffer, chunk_len);
+        if (om == NULL) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE TX] Failed to allocate mbuf for notification");
+            return ESP_ERR_NO_MEM;
+        }
         
-        // Small delay to ensure notification is processed
-        vTaskDelay(pdMS_TO_TICKS(10));
+        // Post notification work to the NimBLE host task
+        // GATT operations should be performed in the host task context
+        if (s_notify_queue == NULL) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE TX] Notification queue not initialized");
+            os_mbuf_free_chain(om);
+            return ESP_ERR_INVALID_STATE;
+        }
+        
+        notify_work_t notify_work = {
+            .conn_handle = conn,
+            .val_handle = s_tx_val_handle,
+            .om = om
+        };
+        
+        if (xQueueSend(s_notify_queue, &notify_work, pdMS_TO_TICKS(100)) != pdTRUE) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE TX] Failed to queue notification work (queue full)");
+            os_mbuf_free_chain(om);
+            return ESP_ERR_NO_MEM;
+        }
+        
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE TX] Notification work queued (chunk %zu, %zu bytes)", 
+                 chunk_num, chunk_len);
+        
+        // Small delay to allow host task to process the notification
+        vTaskDelay(pdMS_TO_TICKS(20));
 
         data += chunk_len;
         len -= chunk_len;
@@ -338,7 +453,29 @@ static esp_err_t somnus_ble_send_chunked(const char *message,
 static void somnus_ble_host_task(void *param)
 {
     (void)param;
-    nimble_port_run();
+    
+    // Process notification queue in host task context
+    notify_work_t notify_work;
+    while (1) {
+        // Check for pending notifications (non-blocking)
+        if (s_notify_queue && xQueueReceive(s_notify_queue, &notify_work, pdMS_TO_TICKS(10)) == pdTRUE) {
+            ESP_LOGI(SOMNUS_BLE_TAG, "[BLE HOST TASK] Processing notification (conn=%u, handle=%u)", 
+                     notify_work.conn_handle, notify_work.val_handle);
+            
+            int rc = ble_gatts_notify_custom(notify_work.conn_handle, notify_work.val_handle, notify_work.om);
+            if (rc != 0) {
+                ESP_LOGE(SOMNUS_BLE_TAG, "[BLE HOST TASK] ble_gatts_notify_custom failed: %d", rc);
+                os_mbuf_free_chain(notify_work.om);
+            } else {
+                ESP_LOGI(SOMNUS_BLE_TAG, "[BLE HOST TASK] Notification sent successfully");
+                // mbuf is consumed by ble_gatts_notify_custom on success
+            }
+        }
+        
+        // Run NimBLE port (this blocks, so we check queue before each run)
+        nimble_port_run();
+    }
+    
     nimble_port_freertos_deinit();
 }
 
@@ -480,8 +617,14 @@ static int somnus_ble_gap_event(struct ble_gap_event *event, void *arg)
             s_conn_handle = event->connect.conn_handle;
             portEXIT_CRITICAL(&s_state_lock);
             ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Connection established - ready for RX/TX");
+            char log_msg[128];
+            snprintf(log_msg, sizeof(log_msg), "Client connected (handle=%u)", event->connect.conn_handle);
+            ble_log_add(BLE_LOG_CONNECT, log_msg);
         } else {
             ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Connection failed status=%d (0=success, non-zero=error)", event->connect.status);
+            char log_msg[128];
+            snprintf(log_msg, sizeof(log_msg), "Connection failed (status=%d)", event->connect.status);
+            ble_log_add(BLE_LOG_DISCONNECT, log_msg);
             somnus_ble_start_advertising();
         }
         break;
@@ -495,6 +638,10 @@ static int somnus_ble_gap_event(struct ble_gap_event *event, void *arg)
         s_notify_enabled = false;
         portEXIT_CRITICAL(&s_state_lock);
         ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Connection closed - restarting advertising");
+        char log_msg[128];
+        snprintf(log_msg, sizeof(log_msg), "Client disconnected (handle=%u, reason=%d)", 
+                 event->disconnect.conn.conn_handle, event->disconnect.reason);
+        ble_log_add(BLE_LOG_DISCONNECT, log_msg);
         somnus_ble_start_advertising();
         break;
     case BLE_GAP_EVENT_CONN_UPDATE:
@@ -529,6 +676,9 @@ static int somnus_ble_gap_event(struct ble_gap_event *event, void *arg)
             portEXIT_CRITICAL(&s_state_lock);
             ESP_LOGI(SOMNUS_BLE_TAG, "[BLE TX] Notifications %s (can now send messages to client)",
                      s_notify_enabled ? "enabled" : "disabled");
+            char log_msg[128];
+            snprintf(log_msg, sizeof(log_msg), "Notifications %s", s_notify_enabled ? "enabled" : "disabled");
+            ble_log_add(BLE_LOG_SUBSCRIBE, log_msg);
         } else {
             ESP_LOGD(SOMNUS_BLE_TAG, "[BLE] Subscribe event for non-TX characteristic (handle=%u)", event->subscribe.attr_handle);
         }
@@ -703,19 +853,49 @@ static void somnus_ble_handle_read_sensors_action(void)
 
 static void somnus_ble_handle_scan_action(void)
 {
-    somnus_ble_notify("WIFI_LIST_START");
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Handling WiFi scan request");
+    
+    // Always send WIFI_LIST_START to indicate scan beginning
+    esp_err_t notify_err = somnus_ble_notify("WIFI_LIST_START");
+    if (notify_err != ESP_OK) {
+        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Failed to send WIFI_LIST_START: %s", esp_err_to_name(notify_err));
+    }
+    
+    // Small delay to ensure notification is sent before starting scan
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     char *json = somnus_ble_perform_wifi_scan(NULL);
     if (!json) {
+        ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] WiFi scan failed - memory allocation error");
         somnus_ble_notify("WIFI_LIST_ERROR");
         somnus_ble_notify("WIFI_LIST_END");
         return;
     }
 
-    somnus_ble_send_chunked(json, pdMS_TO_TICKS(50));
+    // Check if scan returned empty list (WiFi not initialized or no networks found)
+    size_t json_len = strlen(json);
+    bool is_empty = (json_len <= 2 && strcmp(json, "[]") == 0);
+    
+    if (is_empty) {
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi scan returned empty list (WiFi may not be initialized or no networks found)");
+    } else {
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi scan complete, sending %zu bytes", json_len);
+    }
+    
+    esp_err_t send_err = somnus_ble_send_chunked(json, pdMS_TO_TICKS(50));
+    if (send_err != ESP_OK) {
+        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Failed to send WiFi scan results: %s", esp_err_to_name(send_err));
+        // Still send END marker even if chunked send failed
+    }
     free(json);
 
-    somnus_ble_notify("WIFI_LIST_END");
+    // Always send WIFI_LIST_END to indicate scan completion
+    notify_err = somnus_ble_notify("WIFI_LIST_END");
+    if (notify_err != ESP_OK) {
+        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Failed to send WIFI_LIST_END: %s", esp_err_to_name(notify_err));
+    }
+    
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi scan response complete");
 }
 
 static void somnus_ble_handle_connect_action(const cJSON *root)
@@ -764,6 +944,100 @@ static void somnus_ble_handle_connect_action(const cJSON *root)
 
 static char *somnus_ble_perform_wifi_scan(size_t *out_len)
 {
+    // Check if WiFi is initialized and in a mode that supports scanning
+    wifi_mode_t mode;
+    esp_err_t err = esp_wifi_get_mode(&mode);
+    
+    // If WiFi is not initialized, try to initialize it for scanning
+    if (err != ESP_OK || mode == WIFI_MODE_NULL) {
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi not initialized, initializing for scan (err=%s)", 
+                 esp_err_to_name(err));
+        
+        // Initialize netif if not already done (safe to call multiple times)
+        esp_err_t netif_err = esp_netif_init();
+        if (netif_err != ESP_OK && netif_err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] esp_netif_init returned: %s (continuing)", esp_err_to_name(netif_err));
+        }
+        
+        // Create default WiFi STA netif if not exists
+        // Check if default STA netif already exists to avoid ESP_ERR_INVALID_STATE
+        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        if (netif == NULL) {
+            // Default STA netif doesn't exist, create it
+            netif = esp_netif_create_default_wifi_sta();
+            if (netif == NULL) {
+                ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Failed to create WiFi STA netif");
+            } else {
+                ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Created default WiFi STA netif");
+            }
+        } else {
+            ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Default WiFi STA netif already exists");
+        }
+        
+        // Try to initialize WiFi - this is safe even if wifi_manager will initialize it later
+        // because esp_wifi_init checks if already initialized
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+        err = esp_wifi_init(&cfg);
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] Failed to initialize WiFi for scan: %s", esp_err_to_name(err));
+            char *empty = strdup("[]");
+            if (out_len) {
+                *out_len = 2;
+            }
+            return empty;
+        }
+        
+        // Set WiFi to STA mode for scanning
+        err = esp_wifi_set_mode(WIFI_MODE_STA);
+        if (err != ESP_OK) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] Failed to set WiFi mode to STA: %s", esp_err_to_name(err));
+            char *empty = strdup("[]");
+            if (out_len) {
+                *out_len = 2;
+            }
+            return empty;
+        }
+        
+        // Start WiFi - required for scanning
+        err = esp_wifi_start();
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] Failed to start WiFi for scan: %s", esp_err_to_name(err));
+            char *empty = strdup("[]");
+            if (out_len) {
+                *out_len = 2;
+            }
+            return empty;
+        }
+        
+        // Small delay to allow WiFi to start
+        vTaskDelay(pdMS_TO_TICKS(100));
+        
+        // Verify mode after initialization
+        err = esp_wifi_get_mode(&mode);
+        if (err != ESP_OK || (mode != WIFI_MODE_STA && mode != WIFI_MODE_APSTA)) {
+            ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] WiFi mode not suitable for scanning after init: %d", mode);
+            char *empty = strdup("[]");
+            if (out_len) {
+                *out_len = 2;
+            }
+            return empty;
+        }
+        
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi initialized in STA mode for scanning");
+    }
+    
+    // WiFi must be in STA or APSTA mode to scan
+    if (mode != WIFI_MODE_STA && mode != WIFI_MODE_APSTA) {
+        ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] WiFi mode (%d) does not support scanning, need STA or APSTA", mode);
+        char *empty = strdup("[]");
+        if (out_len) {
+            *out_len = 2;
+        }
+        return empty;
+    }
+    
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Starting WiFi scan (mode=%d)", mode);
+
     wifi_scan_config_t scan_cfg = {
         .ssid = NULL,
         .bssid = NULL,
@@ -776,17 +1050,30 @@ static char *somnus_ble_perform_wifi_scan(size_t *out_len)
         },
     };
 
-    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    // Start WiFi scan (blocking call - waits for scan to complete)
+    err = esp_wifi_scan_start(&scan_cfg, true);
     if (err != ESP_OK) {
-        ESP_LOGW(SOMNUS_BLE_TAG, "Wi-Fi scan start failed (%s)", esp_err_to_name(err));
-        return NULL;
+        ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] Wi-Fi scan start failed: %s", esp_err_to_name(err));
+        // Return empty list instead of NULL for graceful handling
+        char *empty = strdup("[]");
+        if (out_len) {
+            *out_len = 2;
+        }
+        return empty;
     }
+    
+    ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] WiFi scan completed, retrieving results");
 
     uint16_t ap_num = 0;
     err = esp_wifi_scan_get_ap_num(&ap_num);
     if (err != ESP_OK) {
         ESP_LOGW(SOMNUS_BLE_TAG, "Wi-Fi get ap num failed (%s)", esp_err_to_name(err));
-        return NULL;
+        // Return empty list instead of NULL for graceful handling
+        char *empty = strdup("[]");
+        if (out_len) {
+            *out_len = 2;
+        }
+        return empty;
     }
 
     if (ap_num > SOMNUS_WIFI_SCAN_MAX_AP) {
@@ -809,7 +1096,12 @@ static char *somnus_ble_perform_wifi_scan(size_t *out_len)
     if (err != ESP_OK) {
         ESP_LOGW(SOMNUS_BLE_TAG, "Wi-Fi get ap records failed (%s)", esp_err_to_name(err));
         free(ap_records);
-        return NULL;
+        // Return empty list instead of NULL for graceful handling
+        char *empty = strdup("[]");
+        if (out_len) {
+            *out_len = 2;
+        }
+        return empty;
     }
 
     cJSON *array = cJSON_CreateArray();
@@ -901,6 +1193,10 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
         return ESP_OK;
     }
 
+    // Initialize BLE log buffer
+    ble_log_init();
+    ble_log_add(BLE_LOG_CONNECT, "BLE service starting");
+
     if (config) {
         s_connect_cb = config->connect_cb;
         s_connect_ctx = config->connect_ctx;
@@ -920,13 +1216,14 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
         return err;
     }
 
-    err = esp_nimble_hci_and_controller_init();
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(SOMNUS_BLE_TAG, "NimBLE controller init failed (%s)", esp_err_to_name(err));
+    // Initialize NimBLE port (matches ESP-IDF reference examples)
+    // Note: nimble_port_init() handles controller initialization internally
+    // Reference examples do NOT call esp_nimble_hci_and_controller_init() separately
+    err = nimble_port_init();
+    if (err != ESP_OK) {
+        ESP_LOGE(SOMNUS_BLE_TAG, "Failed to init nimble: %s", esp_err_to_name(err));
         return err;
     }
-
-    nimble_port_init();
     ESP_LOGI(SOMNUS_BLE_TAG, "nimble_port_init complete");
 
     ble_hs_cfg.sync_cb = somnus_ble_on_sync;
@@ -942,23 +1239,25 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
     int rc = ble_gatts_count_cfg(somnus_svc_defs);
     if (rc != 0) {
         nimble_port_deinit();
-        esp_nimble_hci_and_controller_deinit();
         ESP_LOGE(SOMNUS_BLE_TAG, "ble_gatts_count_cfg failed rc=%d", rc);
         return ESP_FAIL;
     }
     rc = ble_gatts_add_svcs(somnus_svc_defs);
     if (rc != 0) {
         nimble_port_deinit();
-        esp_nimble_hci_and_controller_deinit();
         ESP_LOGE(SOMNUS_BLE_TAG, "ble_gatts_add_svcs failed rc=%d", rc);
         return ESP_FAIL;
     }
     ESP_LOGI(SOMNUS_BLE_TAG, "GATT services registered");
 
+    // BLE store is configured via ble_hs_cfg.store_status_cb (already set above)
+    // Reference examples call ble_store_config_init() which sets up store callbacks,
+    // but we're using the default store_status_cb which should be sufficient
+
     s_cmd_queue = xQueueCreate(SOMNUS_BLE_QUEUE_LENGTH, sizeof(somnus_ble_cmd_msg_t));
     if (!s_cmd_queue) {
         nimble_port_deinit();
-        esp_nimble_hci_and_controller_deinit();
+        ESP_LOGE(SOMNUS_BLE_TAG, "Failed to create command queue");
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(SOMNUS_BLE_TAG, "Command queue created");
@@ -972,11 +1271,25 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
         vQueueDelete(s_cmd_queue);
         s_cmd_queue = NULL;
         nimble_port_deinit();
-        esp_nimble_hci_and_controller_deinit();
+        ESP_LOGE(SOMNUS_BLE_TAG, "Failed to create command task");
         return ESP_ERR_NO_MEM;
     }
     ESP_LOGI(SOMNUS_BLE_TAG, "Command task running");
 
+    // Create notification queue for host task
+    s_notify_queue = xQueueCreate(10, sizeof(notify_work_t));
+    if (!s_notify_queue) {
+        vTaskDelete(s_cmd_task);
+        s_cmd_task = NULL;
+        vQueueDelete(s_cmd_queue);
+        s_cmd_queue = NULL;
+        nimble_port_deinit();
+        ESP_LOGE(SOMNUS_BLE_TAG, "Failed to create notification queue");
+        return ESP_ERR_NO_MEM;
+    }
+    ESP_LOGI(SOMNUS_BLE_TAG, "Notification queue created");
+
+    // Start FreeRTOS host task (must be last, matches reference examples)
     nimble_port_freertos_init(somnus_ble_host_task);
     // nimble_port_freertos_init returns void, so no error check needed
     ESP_LOGI(SOMNUS_BLE_TAG, "FreeRTOS host task launched");
@@ -998,8 +1311,8 @@ esp_err_t somnus_ble_stop(void)
     }
 
     nimble_port_stop();
+    nimble_port_freertos_deinit();
     nimble_port_deinit();
-    esp_nimble_hci_and_controller_deinit();
 
     if (s_cmd_task) {
         vTaskDelete(s_cmd_task);
@@ -1009,6 +1322,10 @@ esp_err_t somnus_ble_stop(void)
         vQueueDelete(s_cmd_queue);
         s_cmd_queue = NULL;
     }
+    if (s_notify_queue) {
+        vQueueDelete(s_notify_queue);
+        s_notify_queue = NULL;
+    }
 
     portENTER_CRITICAL(&s_state_lock);
     s_conn_handle = BLE_HS_CONN_HANDLE_NONE;
@@ -1017,6 +1334,71 @@ esp_err_t somnus_ble_stop(void)
 
     s_started = false;
     ESP_LOGI(SOMNUS_BLE_TAG, "Somnus BLE service stopped");
+    return ESP_OK;
+}
+
+esp_err_t somnus_ble_get_logs(char **out_json, size_t max_entries)
+{
+    if (!out_json) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
+    cJSON *json = cJSON_CreateObject();
+    cJSON *logs_array = cJSON_CreateArray();
+    
+    portENTER_CRITICAL(&s_ble_log.lock);
+    
+    size_t count = s_ble_log.count;
+    if (max_entries > 0 && count > max_entries) {
+        count = max_entries;
+    }
+    
+    // Get entries from oldest to newest
+    for (size_t i = 0; i < count; i++) {
+        size_t idx = (s_ble_log.head + i) % SOMNUS_BLE_LOG_MAX_ENTRIES;
+        ble_log_entry_t *entry = &s_ble_log.entries[idx];
+        
+        cJSON *log_obj = cJSON_CreateObject();
+        
+        const char *type_str = "UNKNOWN";
+        switch (entry->type) {
+        case BLE_LOG_CONNECT:
+            type_str = "CONNECT";
+            break;
+        case BLE_LOG_DISCONNECT:
+            type_str = "DISCONNECT";
+            break;
+        case BLE_LOG_RX:
+            type_str = "RX";
+            break;
+        case BLE_LOG_TX:
+            type_str = "TX";
+            break;
+        case BLE_LOG_SUBSCRIBE:
+            type_str = "SUBSCRIBE";
+            break;
+        }
+        
+        cJSON_AddStringToObject(log_obj, "type", type_str);
+        cJSON_AddNumberToObject(log_obj, "timestamp_ms", entry->timestamp_ms);
+        cJSON_AddStringToObject(log_obj, "message", entry->message);
+        
+        cJSON_AddItemToArray(logs_array, log_obj);
+    }
+    
+    portEXIT_CRITICAL(&s_ble_log.lock);
+    
+    cJSON_AddItemToObject(json, "logs", logs_array);
+    cJSON_AddNumberToObject(json, "total_count", s_ble_log.count);
+    
+    char *json_str = cJSON_Print(json);
+    cJSON_Delete(json);
+    
+    if (!json_str) {
+        return ESP_ERR_NO_MEM;
+    }
+    
+    *out_json = json_str;
     return ESP_OK;
 }
 
