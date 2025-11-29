@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "nvs_flash.h"
+#include "somnus_ble.h"
 
 static const char *TAG = "naphome_main";
 
@@ -28,16 +29,25 @@ void app_main(void)
 
     ESP_LOGI(TAG, "NVS initialized");
 
-    // TODO: Initialize I2C bus
-    // TODO: Initialize drivers
-    // TODO: Initialize components
-    // TODO: Start tasks
+    // Start BLE service
+    ESP_LOGI(TAG, "Starting BLE service...");
+    somnus_ble_config_t ble_config = {0};  // Zero-initialize (all callbacks NULL)
+    esp_err_t ble_err = somnus_ble_start(&ble_config);
+    if (ble_err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start BLE: %s", esp_err_to_name(ble_err));
+    } else {
+        ESP_LOGI(TAG, "BLE service started");
+    }
+
+    // Start Wi-Fi connection
+    ESP_LOGI(TAG, "Starting Wi-Fi...");
+    // Note: Wi-Fi initialization happens in BLE component when needed
 
     ESP_LOGI(TAG, "Naphome firmware initialized successfully");
 
     // Main loop
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
-        // TODO: Main application logic
+        // Main application logic
     }
 }
