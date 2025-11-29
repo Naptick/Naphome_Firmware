@@ -281,12 +281,13 @@
                 <div class="connection-info">
                     <div class="form-group" style="flex: 1; min-width: 200px;">
                         <label for="proxy-url">Proxy Endpoint URL:</label>
-                        <input type="text" id="proxy-url" placeholder="https://your-proxy.example.com/iot">
+                        <input type="text" id="proxy-url" placeholder="https://your-proxy.example.com/connect" value="https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect">
                     </div>
                 </div>
                 <div class="status status-info" style="margin-top: 10px;">
-                    <strong>Backend Proxy:</strong> Uses a backend service that authenticates with AWS using GitHub Secrets. 
+                    <strong>Backend Proxy:</strong> Uses AWS Lambda + API Gateway. Credentials stored securely in GitHub Secrets. 
                     See <a href="AWS_IOT_TEST_README.md#backend-proxy" target="_blank">setup instructions</a>.
+                    <br><small>Current endpoint: <code>https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect</code></small>
                 </div>
             </div>
             <div class="device-selector">
