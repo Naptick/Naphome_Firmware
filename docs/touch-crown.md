@@ -1,11 +1,8 @@
 ---
-
-Top-of-Egg Capacitive Gesture Whitepaper
-
-Naphome Device Architecture
-Rev 0.1 -- Draft
-
+title: Touch Crown Gesture Interface
+description: Top-of-Egg Capacitive Gesture Whitepaper - Naphome Device Architecture
 ---
+
 
 1. Executive Summary
 
