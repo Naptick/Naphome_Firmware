@@ -40,9 +40,11 @@ jobs:
         run: |
           zip -q function.zip index.js package.json
 
-      - name: Create IAM role (if needed)
+      - name: Create IAM role and policy
         run: |
           ROLE_NAME="aws-iot-proxy-lambda-role"
+          POLICY_NAME="aws-iot-proxy-lambda-policy"
+          
           if ! aws iam get-role --role-name $ROLE_NAME &>/dev/null; then
             echo "Creating IAM role..."
             cat > /tmp/trust-policy.json <<'EOF'
@@ -70,6 +72,33 @@ jobs:
             echo "Waiting for role to be ready..."
             sleep 10
           fi
+          
+          # Create inline policy for IoT access (using GitHub Secrets credentials)
+          echo "Creating IoT access policy..."
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          cat > /tmp/iot-policy.json <<EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "iot:Connect",
+                  "iot:Publish",
+                  "iot:Subscribe",
+                  "iot:Receive"
+                ],
+                "Resource": "*"
+              }
+            ]
+          }
+          EOF
+          
+          # Attach inline policy to role
+          aws iam put-role-policy \
+            --role-name $ROLE_NAME \
+            --policy-name $POLICY_NAME \
+            --policy-document file:///tmp/iot-policy.json || echo "Policy may already exist"
 
       - name: Deploy Lambda function
         working-directory: docs/aws-iot-lambda
@@ -91,7 +120,7 @@ jobs:
             
             aws lambda update-function-configuration \
               --function-name $FUNCTION_NAME \
-              --environment "Variables={AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_REGION=${REGION},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --environment "Variables={AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
               --region $REGION \
               --timeout 30 \
               --memory-size 128
@@ -105,7 +134,7 @@ jobs:
               --zip-file fileb://function.zip \
               --timeout 30 \
               --memory-size 128 \
-              --environment "Variables={AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_REGION=${REGION},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --environment "Variables={AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
               --region $REGION
           fi
 

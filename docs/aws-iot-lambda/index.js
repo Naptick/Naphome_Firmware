@@ -11,23 +11,26 @@
 const AWS = require('aws-sdk');
 const crypto = require('crypto');
 
-// Initialize AWS SDK with credentials from environment
-AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'ap-south-1'
-});
+// Initialize AWS SDK - uses IAM role credentials automatically
+// Region from environment variable (set by Lambda) or default
+const region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || 'ap-south-1';
+AWS.config.update({ region: region });
 
 /**
  * Generate signed WebSocket URL for AWS IoT MQTT connection
  */
-function generateSignedWebSocketUrl(endpoint, region) {
+async function generateSignedWebSocketUrl(endpoint, region) {
+    // Get credentials from IAM role (Lambda execution role)
+    // Use default credential chain which automatically uses the execution role
+    const chain = new AWS.CredentialProviderChain();
+    const credentials = await chain.resolvePromise();
+    
     const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
     const dateStamp = timestamp.substr(0, 8);
     const credentialScope = `${dateStamp}/${region}/iotdevicegateway/aws4_request`;
     
-    const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+    const accessKeyId = credentials.accessKeyId;
+    const secretAccessKey = credentials.secretAccessKey;
     
     // Build canonical request
     const canonicalUri = '/mqtt';
@@ -91,7 +94,7 @@ exports.handler = async (event) => {
         }
         
         // Generate signed WebSocket URL
-        const websocketUrl = generateSignedWebSocketUrl(endpoint, region);
+        const websocketUrl = await generateSignedWebSocketUrl(endpoint, region);
         
         return {
             statusCode: 200,
