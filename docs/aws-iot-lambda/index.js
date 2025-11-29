@@ -41,8 +41,16 @@ async function generateSignedWebSocketUrl(endpoint, region) {
         secretAccessKey = credentials.secretAccessKey;
     }
     
-    const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
-    const dateStamp = timestamp.substr(0, 8);
+    // Generate timestamp in format: YYYYMMDDTHHmmssZ
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    const hours = String(now.getUTCHours()).padStart(2, '0');
+    const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+    const timestamp = `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+    const dateStamp = timestamp.substring(0, 8);
     const credentialScope = `${dateStamp}/${region}/iotdevicegateway/aws4_request`;
     
     // Build canonical request
@@ -75,10 +83,17 @@ async function generateSignedWebSocketUrl(endpoint, region) {
  * Lambda handler
  */
 exports.handler = async (event) => {
-    console.log('Event received:', JSON.stringify(event));
+    try {
+        console.log('=== Lambda invoked ===');
+        console.log('Event received:', JSON.stringify(event));
+        console.log('Event type:', typeof event);
+        console.log('Event keys:', Object.keys(event || {}));
+    } catch (e) {
+        console.error('Error in initial logging:', e);
+    }
     
     // Handle CORS preflight
-    if (event.httpMethod === 'OPTIONS') {
+    if (event && event.httpMethod === 'OPTIONS') {
         return {
             statusCode: 200,
             headers: {
