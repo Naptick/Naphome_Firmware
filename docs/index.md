@@ -5,6 +5,7 @@ Welcome to the Naphome firmware documentation space. Use this site to find guide
 ## 🚀 Quick Links
 
 - **[Firmware Flasher](firmware-flasher.html)** - Web-based tool to flash firmware from GitHub Releases
+- **[AWS IoT Sensor Monitor](aws-iot-test.html)** - Real-time sensor data monitoring with history graphs
 
 ## Quick Start
 
