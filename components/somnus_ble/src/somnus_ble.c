@@ -947,6 +947,7 @@ static char *somnus_ble_perform_wifi_scan(size_t *out_len)
     // Check if WiFi is initialized and in a mode that supports scanning
     wifi_mode_t mode;
     esp_err_t err = esp_wifi_get_mode(&mode);
+    bool wifi_was_initialized = (err == ESP_OK);
     
     // If WiFi is not initialized, try to initialize it for scanning
     if (err != ESP_OK || mode == WIFI_MODE_NULL) {
@@ -959,25 +960,20 @@ static char *somnus_ble_perform_wifi_scan(size_t *out_len)
             ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] esp_netif_init returned: %s (continuing)", esp_err_to_name(netif_err));
         }
         
-        // Create default WiFi STA netif if not exists
-        // Check if default STA netif already exists to avoid ESP_ERR_INVALID_STATE
-        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-        if (netif == NULL) {
-            // Default STA netif doesn't exist, create it
-            netif = esp_netif_create_default_wifi_sta();
-            if (netif == NULL) {
-                ESP_LOGW(SOMNUS_BLE_TAG, "[BLE] Failed to create WiFi STA netif");
-            } else {
-                ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Created default WiFi STA netif");
-            }
-        } else {
-            ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Default WiFi STA netif already exists");
-        }
+        // CRITICAL: Do NOT call esp_netif_create_default_wifi_sta() here!
+        // It uses ESP_ERROR_CHECK internally and will ABORT if handlers are already set.
+        // The netif may already exist from:
+        // 1. esp_netif_init() being called elsewhere
+        // 2. Another component creating it
+        // 3. WiFi being initialized previously
+        // WiFi init will work without explicitly creating the netif here.
+        // If netif is needed, it will be created during WiFi initialization or already exists.
+        ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Skipping netif creation (may already exist or will be created by WiFi init)");
         
         // Try to initialize WiFi - this is safe even if wifi_manager will initialize it later
         // because esp_wifi_init checks if already initialized
-        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-        err = esp_wifi_init(&cfg);
+        wifi_init_config_t wifi_cfg = WIFI_INIT_CONFIG_DEFAULT();
+        err = esp_wifi_init(&wifi_cfg);
         if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
             ESP_LOGE(SOMNUS_BLE_TAG, "[BLE] Failed to initialize WiFi for scan: %s", esp_err_to_name(err));
             char *empty = strdup("[]");
