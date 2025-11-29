@@ -84,6 +84,7 @@ Response:
 - ✅ Never exposed to browser
 - ✅ CORS enabled for web access
 - ✅ IAM role with least privilege
+- ✅ Uses custom environment variable names (IOT_ACCESS_KEY_ID, IOT_SECRET_ACCESS_KEY) to avoid Lambda reserved vars
 
 ## Troubleshooting
 

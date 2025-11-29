@@ -29,8 +29,14 @@ async function generateSignedWebSocketUrl(endpoint, region) {
         secretAccessKey = process.env.IOT_SECRET_ACCESS_KEY;
     } else {
         // Fallback to IAM role credentials
-        const chain = new AWS.CredentialProviderChain();
-        const credentials = await chain.resolvePromise();
+        // Use default credential chain (Lambda execution role)
+        const credentials = await new Promise((resolve, reject) => {
+            const chain = new AWS.CredentialProviderChain();
+            chain.resolve((err, creds) => {
+                if (err) reject(err);
+                else resolve(creds);
+            });
+        });
         accessKeyId = credentials.accessKeyId;
         secretAccessKey = credentials.secretAccessKey;
     }
@@ -69,6 +75,8 @@ async function generateSignedWebSocketUrl(endpoint, region) {
  * Lambda handler
  */
 exports.handler = async (event) => {
+    console.log('Event received:', JSON.stringify(event));
+    
     // Handle CORS preflight
     if (event.httpMethod === 'OPTIONS') {
         return {
@@ -84,7 +92,26 @@ exports.handler = async (event) => {
     
     try {
         // Parse request body
-        const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+        let body;
+        try {
+            body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+        } catch (e) {
+            console.error('Body parse error:', e);
+            return {
+                statusCode: 400,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    error: 'Invalid JSON in request body',
+                    details: e.message
+                })
+            };
+        }
+        
+        console.log('Parsed body:', JSON.stringify(body));
+        
         const { endpoint, region, device, topic } = body;
         
         if (!endpoint || !region || !device || !topic) {
@@ -95,13 +122,18 @@ exports.handler = async (event) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    error: 'Missing required parameters: endpoint, region, device, topic' 
+                    error: 'Missing required parameters: endpoint, region, device, topic',
+                    received: { endpoint: !!endpoint, region: !!region, device: !!device, topic: !!topic }
                 })
             };
         }
         
+        console.log('Generating signed URL for:', endpoint, region);
+        
         // Generate signed WebSocket URL
         const websocketUrl = await generateSignedWebSocketUrl(endpoint, region);
+        
+        console.log('Generated URL (first 100 chars):', websocketUrl.substring(0, 100));
         
         return {
             statusCode: 200,
@@ -118,7 +150,8 @@ exports.handler = async (event) => {
             })
         };
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Handler error:', error);
+        console.error('Stack:', error.stack);
         return {
             statusCode: 500,
             headers: {
@@ -126,7 +159,8 @@ exports.handler = async (event) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                error: error.message 
+                error: error.message,
+                stack: error.stack
             })
         };
     }
