@@ -41,5 +41,5 @@ plugins:
 # Update baseurl to match your repository name
 # If repo is "Naphome_Firmware", baseurl should be "/Naphome_Firmware"
 # If repo is "Naphome-Firmware", baseurl should be "/Naphome-Firmware"
-url: "https://naphome.github.io"
+url: "https://naptick.github.io"
 baseurl: "/Naphome_Firmware"  # Repository name from GitHub

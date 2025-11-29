@@ -19,6 +19,7 @@ This web-based tool allows you to flash Naphome firmware directly from GitHub Re
 ## Usage
 
 1. Navigate to the [Firmware Flasher](firmware-flasher.html) page
+   - URL: `https://naptick.github.io/Naphome_Firmware/firmware-flasher.html`
 2. Select a firmware release from the dropdown
 3. Configure device settings (chip type, baud rate, flash size)
 4. Click "Connect to Device" and select your serial port
