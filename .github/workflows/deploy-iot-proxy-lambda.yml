@@ -120,7 +120,7 @@ jobs:
             
             aws lambda update-function-configuration \
               --function-name $FUNCTION_NAME \
-              --environment "Variables={AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --environment "Variables={IOT_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},IOT_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
               --region $REGION \
               --timeout 30 \
               --memory-size 128
@@ -134,7 +134,7 @@ jobs:
               --zip-file fileb://function.zip \
               --timeout 30 \
               --memory-size 128 \
-              --environment "Variables={AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
+              --environment "Variables={IOT_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }},IOT_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }},AWS_IOT_ENDPOINT=${AWS_IOT_ENDPOINT}}" \
               --region $REGION
           fi
 

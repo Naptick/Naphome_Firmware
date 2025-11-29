@@ -20,17 +20,24 @@ AWS.config.update({ region: region });
  * Generate signed WebSocket URL for AWS IoT MQTT connection
  */
 async function generateSignedWebSocketUrl(endpoint, region) {
-    // Get credentials from IAM role (Lambda execution role)
-    // Use default credential chain which automatically uses the execution role
-    const chain = new AWS.CredentialProviderChain();
-    const credentials = await chain.resolvePromise();
+    // Get credentials - try environment variables first (custom names), then IAM role
+    let accessKeyId, secretAccessKey;
+    
+    if (process.env.IOT_ACCESS_KEY_ID && process.env.IOT_SECRET_ACCESS_KEY) {
+        // Use custom environment variables (from GitHub Secrets)
+        accessKeyId = process.env.IOT_ACCESS_KEY_ID;
+        secretAccessKey = process.env.IOT_SECRET_ACCESS_KEY;
+    } else {
+        // Fallback to IAM role credentials
+        const chain = new AWS.CredentialProviderChain();
+        const credentials = await chain.resolvePromise();
+        accessKeyId = credentials.accessKeyId;
+        secretAccessKey = credentials.secretAccessKey;
+    }
     
     const timestamp = new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '');
     const dateStamp = timestamp.substr(0, 8);
     const credentialScope = `${dateStamp}/${region}/iotdevicegateway/aws4_request`;
-    
-    const accessKeyId = credentials.accessKeyId;
-    const secretAccessKey = credentials.secretAccessKey;
     
     // Build canonical request
     const canonicalUri = '/mqtt';
