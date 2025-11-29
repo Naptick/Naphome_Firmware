@@ -3,6 +3,7 @@
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "sdkconfig.h"
 
 #if CONFIG_KVA_SPOTIFY_USE_CSPOT
@@ -101,18 +102,19 @@ bool ensure_spiffs()
     if (mounted) {
         return true;
     }
-    // Try "storage" partition first (our custom partition), fall back to NULL (default)
+    // Try "rules" partition first (matches partition table), fall back to NULL (default)
     esp_vfs_spiffs_conf_t conf = {
         .base_path = "/spiffs",
-        .partition_label = "storage",  // Try our custom partition
+        .partition_label = "rules",  // Use "rules" partition from partition table
         .max_files = 5,
-        .format_if_mount_failed = true,
+        .format_if_mount_failed = false,  // Don't format - partition may have data
     };
     esp_err_t err = esp_vfs_spiffs_register(&conf);
     if (err != ESP_OK) {
-        // Fall back to default partition if "storage" doesn't exist
-        ESP_LOGW(TAG, "SPIFFS mount failed with 'storage' partition (%s), trying default partition", esp_err_to_name(err));
+        // Fall back to default partition if "rules" doesn't exist
+        ESP_LOGW(TAG, "SPIFFS mount failed with 'rules' partition (%s), trying default partition", esp_err_to_name(err));
         conf.partition_label = NULL;  // Use default partition
+        conf.format_if_mount_failed = true;
         err = esp_vfs_spiffs_register(&conf);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "SPIFFS mount failed with default partition (%s)", esp_err_to_name(err));
@@ -158,7 +160,7 @@ class KorvoAudioSink : public AudioSink {
 class SpotifyPlayerTask : public bell::Task {
   public:
     explicit SpotifyPlayerTask(const spotify_player_config_t &cfg)
-        : bell::Task("cspot", 32 * 1024, 0, 1, false), cfg_(cfg)
+        : bell::Task("cspot", 16 * 1024, 0, 1, false), cfg_(cfg)
     {
         // Set default logger before starting task (required by cspot)
         bell::setDefaultLogger();
@@ -257,6 +259,14 @@ class SpotifyPlayerTask : public bell::Task {
         std::atomic<bool> got_blob = false;
         uint16_t http_port = cfg_.zeroconf_port ? cfg_.zeroconf_port : 8080;
 
+        // Check available heap before creating HTTP server (civetweb needs significant memory)
+        size_t free_heap = esp_get_free_heap_size();
+        ESP_LOGI(TAG, "Available heap before HTTP server: %zu bytes", free_heap);
+        if (free_heap < 16384) {  // Need at least 16KB free
+            ESP_LOGE(TAG, "Insufficient memory (%zu bytes) to start HTTP server for zeroconf", free_heap);
+            return false;
+        }
+
         auto server = std::make_unique<bell::BellHTTPServer>(http_port);
         server->registerGet(
             "/spotify_info",
@@ -323,8 +333,18 @@ class SpotifyPlayerTask : public bell::Task {
         }
         ESP_LOGI(TAG, "Spotify authentication successful");
 
+        // Check available heap before creating internal task
+        size_t free_heap = esp_get_free_heap_size();
+        size_t min_free_heap = esp_get_minimum_free_heap_size();
+        ESP_LOGI(TAG, "Free heap: %zu bytes, Min free: %zu bytes", free_heap, min_free_heap);
+        
+        if (free_heap < 8192) {
+            ESP_LOGW(TAG, "Low heap memory (%zu bytes), may fail to create cspot internal task", free_heap);
+        }
+
         ESP_LOGI(TAG, "Starting cspot session task...");
         ctx->session->startTask();
+        ESP_LOGI(TAG, "cspot session task started successfully");
         
         ESP_LOGI(TAG, "Creating SpircHandler...");
         auto handler = std::make_shared<cspot::SpircHandler>(ctx);

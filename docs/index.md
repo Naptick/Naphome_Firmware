@@ -2,6 +2,10 @@
 
 Welcome to the Naphome firmware documentation space. Use this site to find guides on architecture, integrations, and deployment workflows.
 
+## 🚀 Quick Links
+
+- **[Firmware Flasher](firmware-flasher.html)** - Web-based tool to flash firmware from GitHub Releases
+
 ## Quick Start
 
 ### IoT & Cloud Integration

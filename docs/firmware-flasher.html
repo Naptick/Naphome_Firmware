@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naphome Firmware Flasher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .button-secondary {
+            background: #6c757d;
+        }
+        .button-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+        .button-danger {
+            background: #dc3545;
+        }
+        .button-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .progress {
+            width: 100%;
+            height: 25px;
+            background: #e9ecef;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        .release-info {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        .release-info strong {
+            color: #667eea;
+        }
+        .hidden {
+            display: none;
+        }
+        .warning-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .warning-box h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        .warning-box ul {
+            margin-left: 20px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Naphome Firmware Flasher</h1>
+        <p class="subtitle">Flash firmware to your ESP32-S3 device directly from GitHub Releases</p>
+
+        <div class="warning-box">
+            <h3>⚠️ Important Notes</h3>
+            <ul>
+                <li>This tool requires a browser that supports Web Serial API (Chrome, Edge, Opera)</li>
+                <li>Make sure your device is connected via USB</li>
+                <li>You may need to put your device in bootloader mode (hold BOOT, press RESET, release BOOT)</li>
+                <li>Flashing will erase existing firmware - backup if needed</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>1. Select Firmware Release</h2>
+            <div class="form-group">
+                <label for="release-select">Release Version:</label>
+                <select id="release-select">
+                    <option value="">Loading releases...</option>
+                </select>
+            </div>
+            <div id="release-info" class="release-info hidden"></div>
+            <button id="refresh-releases" class="button-secondary">🔄 Refresh Releases</button>
+        </div>
+
+        <div class="section">
+            <h2>2. Device Configuration</h2>
+            <div class="form-group">
+                <label for="chip-select">Chip Type:</label>
+                <select id="chip-select">
+                    <option value="esp32s3" selected>ESP32-S3</option>
+                    <option value="esp32">ESP32</option>
+                    <option value="esp32c3">ESP32-C3</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="baud-rate">Baud Rate:</label>
+                <input type="number" id="baud-rate" value="460800" min="115200" max="921600" step="115200">
+            </div>
+            <div class="form-group">
+                <label for="flash-size">Flash Size:</label>
+                <select id="flash-size">
+                    <option value="8MB" selected>8MB</option>
+                    <option value="4MB">4MB</option>
+                    <option value="16MB">16MB</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>3. Flash Firmware</h2>
+            <button id="connect-btn">🔌 Connect to Device</button>
+            <button id="flash-btn" disabled>📤 Flash Firmware</button>
+            <button id="erase-btn" class="button-danger" disabled>🗑️ Erase Flash</button>
+            <div id="status"></div>
+            <div id="progress-container" class="hidden">
+                <div class="progress">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%">0%</div>
+                </div>
+            </div>
+            <div id="log" class="log hidden"></div>
+        </div>
+    </div>
+
+    <!-- Load esptool.js library -->
+    <!-- Note: You may need to host esptool.js locally or use a CDN that has it -->
+    <!-- Option 1: Use from unpkg (if available) -->
+    <script src="https://unpkg.com/esptool-js@latest/dist/esptool.js"></script>
+    <!-- Option 2: Use from jsDelivr -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/esptool-js@latest/dist/esptool.js"></script> -->
+    <!-- Option 3: Host locally - download from https://github.com/espressif/esptool-js -->
+    <!-- <script src="esptool.js"></script> -->
+    <script>
+        const REPO_OWNER = 'Naptick';
+        const REPO_NAME = 'Naphome_Firmware';
+        let selectedRelease = null;
+        let port = null;
+        let esptool = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadReleases();
+            document.getElementById('refresh-releases').addEventListener('click', loadReleases);
+            document.getElementById('release-select').addEventListener('change', onReleaseSelect);
+            document.getElementById('connect-btn').addEventListener('click', connectDevice);
+            document.getElementById('flash-btn').addEventListener('click', flashFirmware);
+            document.getElementById('erase-btn').addEventListener('click', eraseFlash);
+        });
+
+        async function loadReleases() {
+            const select = document.getElementById('release-select');
+            const info = document.getElementById('release-info');
+            
+            select.innerHTML = '<option value="">Loading releases...</option>';
+            info.classList.add('hidden');
+            
+            try {
+                const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases`);
+                const releases = await response.json();
+                
+                if (releases.length === 0) {
+                    select.innerHTML = '<option value="">No releases found</option>';
+                    showStatus('No releases found. Make sure releases are published on GitHub.', 'warning');
+                    return;
+                }
+                
+                select.innerHTML = '<option value="">Select a release...</option>';
+                releases.forEach(release => {
+                    const option = document.createElement('option');
+                    option.value = release.id;
+                    option.textContent = `${release.tag_name} - ${release.name || 'Untitled'}`;
+                    option.dataset.release = JSON.stringify(release);
+                    select.appendChild(option);
+                });
+                
+                showStatus(`Loaded ${releases.length} release(s)`, 'success');
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading releases</option>';
+                showStatus(`Error loading releases: ${error.message}`, 'error');
+            }
+        }
+
+        function onReleaseSelect() {
+            const select = document.getElementById('release-select');
+            const info = document.getElementById('release-info');
+            
+            if (!select.value) {
+                info.classList.add('hidden');
+                selectedRelease = null;
+                return;
+            }
+            
+            const release = JSON.parse(select.options[select.selectedIndex].dataset.release);
+            selectedRelease = release;
+            
+            // Find firmware assets
+            const firmwareAssets = release.assets.filter(asset => 
+                asset.name.endsWith('.bin') || 
+                asset.name.includes('firmware') ||
+                asset.name.includes('atom_echo')
+            );
+            
+            let html = `<strong>Release:</strong> ${release.tag_name}<br>`;
+            html += `<strong>Published:</strong> ${new Date(release.published_at).toLocaleString()}<br>`;
+            if (release.body) {
+                html += `<strong>Notes:</strong> ${release.body.substring(0, 200)}${release.body.length > 200 ? '...' : ''}<br>`;
+            }
+            html += `<strong>Assets:</strong> ${release.assets.length} file(s)<br>`;
+            
+            if (firmwareAssets.length > 0) {
+                html += `<strong>Firmware files:</strong><ul>`;
+                firmwareAssets.forEach(asset => {
+                    html += `<li>${asset.name} (${formatBytes(asset.size)})</li>`;
+                });
+                html += `</ul>`;
+            } else {
+                html += `<br><em>No firmware .bin files found in this release</em>`;
+            }
+            
+            info.innerHTML = html;
+            info.classList.remove('hidden');
+        }
+
+        async function connectDevice() {
+            try {
+                if (!('serial' in navigator)) {
+                    throw new Error('Web Serial API not supported. Please use Chrome, Edge, or Opera.');
+                }
+                
+                showStatus('Requesting serial port access...', 'info');
+                port = await navigator.serial.requestPort();
+                
+                showStatus('Connecting to device...', 'info');
+                await port.open({ baudRate: 115200 });
+                
+                const chip = document.getElementById('chip-select').value;
+                const baudRate = parseInt(document.getElementById('baud-rate').value);
+                
+                // Initialize esptool.js
+                // Note: API may vary - adjust based on actual library version
+                if (typeof ESPToolJS !== 'undefined') {
+                    esptool = new ESPToolJS({
+                        port: port,
+                        chip: chip,
+                        baud: baudRate,
+                        logFunction: (message) => {
+                            appendLog(message);
+                        }
+                    });
+                } else if (typeof ESPTool !== 'undefined') {
+                    esptool = new ESPTool({
+                        port: port,
+                        chip: chip,
+                        baud: baudRate
+                    });
+                } else {
+                    throw new Error('esptool.js library not loaded. Please check the script source.');
+                }
+                
+                showStatus('Connected! Device ready for flashing.', 'success');
+                document.getElementById('connect-btn').disabled = true;
+                document.getElementById('flash-btn').disabled = false;
+                document.getElementById('erase-btn').disabled = false;
+            } catch (error) {
+                if (error.name === 'NotFoundError') {
+                    showStatus('No port selected. Please try again.', 'warning');
+                } else {
+                    showStatus(`Connection error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function flashFirmware() {
+            if (!selectedRelease) {
+                showStatus('Please select a release first', 'warning');
+                return;
+            }
+            
+            if (!esptool) {
+                showStatus('Please connect to device first', 'warning');
+                return;
+            }
+            
+            try {
+                // Find firmware binary
+                const firmwareAssets = selectedRelease.assets.filter(asset => 
+                    asset.name.endsWith('.bin') && 
+                    (asset.name.includes('atom_echo') || asset.name.includes('firmware'))
+                );
+                
+                if (firmwareAssets.length === 0) {
+                    showStatus('No firmware binary found in selected release', 'error');
+                    return;
+                }
+                
+                // Use the first firmware binary (or largest one)
+                const firmwareAsset = firmwareAssets.sort((a, b) => b.size - a.size)[0];
+                
+                showStatus(`Downloading firmware: ${firmwareAsset.name}...`, 'info');
+                document.getElementById('progress-container').classList.remove('hidden');
+                document.getElementById('log').classList.remove('hidden');
+                
+                // Download firmware
+                const response = await fetch(firmwareAsset.browser_download_url);
+                const arrayBuffer = await response.arrayBuffer();
+                const firmwareData = new Uint8Array(arrayBuffer);
+                
+                showStatus(`Firmware downloaded (${formatBytes(firmwareData.length)}). Starting flash...`, 'info');
+                
+                // Flash firmware
+                const flashSize = document.getElementById('flash-size').value;
+                
+                // Typical ESP32-S3 partition layout:
+                // 0x0: bootloader
+                // 0x8000: partition table  
+                // 0x10000: app (factory partition)
+                
+                showStatus('Connecting to device...', 'info');
+                updateProgress(5);
+                
+                // Connect and sync
+                if (esptool.connect) {
+                    await esptool.connect();
+                }
+                if (esptool.sync) {
+                    await esptool.sync();
+                }
+                
+                // Erase flash first (optional - can be skipped for faster flashing)
+                if (confirm('Erase flash before writing? (Recommended for clean install)')) {
+                    showStatus('Erasing flash...', 'info');
+                    updateProgress(10);
+                    if (esptool.eraseFlash) {
+                        await esptool.eraseFlash();
+                    } else if (esptool.erase_flash) {
+                        await esptool.erase_flash();
+                    }
+                }
+                
+                // Write app firmware at 0x10000 (factory partition)
+                showStatus('Writing firmware to flash...', 'info');
+                updateProgress(20);
+                
+                // Flash the main app
+                const flashAddress = 0x10000; // Factory app partition
+                
+                if (esptool.writeFlash) {
+                    await esptool.writeFlash(flashAddress, firmwareData, (progress) => {
+                        const percent = 20 + Math.floor(progress * 0.75);
+                        updateProgress(percent);
+                    });
+                } else if (esptool.write_flash) {
+                    await esptool.write_flash(flashAddress, firmwareData, (progress) => {
+                        const percent = 20 + Math.floor(progress * 0.75);
+                        updateProgress(percent);
+                    });
+                } else {
+                    // Fallback: try direct method
+                    throw new Error('Flash method not available. Check esptool.js API.');
+                }
+                
+                updateProgress(100);
+                showStatus('Firmware flashed successfully!', 'success');
+                
+                // Reset device
+                if (esptool.reset) {
+                    await esptool.reset();
+                } else if (esptool.hard_reset) {
+                    await esptool.hard_reset();
+                }
+                
+                showStatus('Device reset. Firmware should be running now.', 'success');
+                
+            } catch (error) {
+                showStatus(`Flash error: ${error.message}`, 'error');
+                appendLog(`ERROR: ${error.stack || error.message}`);
+            }
+        }
+
+        async function eraseFlash() {
+            if (!esptool) {
+                showStatus('Please connect to device first', 'warning');
+                return;
+            }
+            
+            if (!confirm('This will erase all flash memory. Are you sure?')) {
+                return;
+            }
+            
+            try {
+                showStatus('Erasing flash...', 'info');
+                document.getElementById('log').classList.remove('hidden');
+                
+                if (esptool.connect) {
+                    await esptool.connect();
+                }
+                if (esptool.sync) {
+                    await esptool.sync();
+                }
+                if (esptool.eraseFlash) {
+                    await esptool.eraseFlash();
+                } else if (esptool.erase_flash) {
+                    await esptool.erase_flash();
+                } else {
+                    throw new Error('Erase method not available');
+                }
+                
+                showStatus('Flash erased successfully', 'success');
+            } catch (error) {
+                showStatus(`Erase error: ${error.message}`, 'error');
+                appendLog(`ERROR: ${error.stack || error.message}`);
+            }
+        }
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status status-${type}`;
+            status.textContent = message;
+            appendLog(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function appendLog(message) {
+            const log = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateProgress(percent) {
+            const bar = document.getElementById('progress-bar');
+            bar.style.width = `${percent}%`;
+            bar.textContent = `${percent}%`;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
