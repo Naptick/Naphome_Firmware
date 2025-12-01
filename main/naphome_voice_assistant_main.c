@@ -18,6 +18,7 @@
 #include "korvo_audio.h"
 #include "led_controller.h"
 #include "somnus_mqtt.h"
+#include "aws_iot_service.h"
 #include "nvs_flash.h"
 #include "spotify_client.h"
 #include "spotify_player.h"
@@ -33,7 +34,6 @@
 #define i2c_master_dev_handle_t i2c_cmd_handle_t
 #include "driver/gpio.h"
 #include "esp_system.h"
-#include "app_version.h"
 #include "version_info.h"
 #include "device_state.h"
 
@@ -838,6 +838,29 @@ void app_main(void)
         sensor_manager_set_observer(matter_bridge_sensor_observer, NULL);
         ESP_LOGI(TAG, "Matter bridge registered as sensor_manager observer");
 #endif
+        
+        // Wait for MQTT connection before starting sensor publishing
+        // This prevents race condition where sensor_manager tries to publish before MQTT is connected
+        if (mqtt_err == ESP_OK) {
+            ESP_LOGI(TAG, "Waiting for MQTT connection before starting sensor publishing...");
+            aws_iot_client_t *client = NULL;
+            int wait_count = 0;
+            const int max_wait_seconds = 30; // Wait up to 30 seconds
+            
+            while (wait_count < max_wait_seconds * 10) { // Check every 100ms
+                client = aws_iot_service_get_client();
+                if (client && aws_iot_client_is_connected(client)) {
+                    ESP_LOGI(TAG, "MQTT connected, starting sensor publishing");
+                    break;
+                }
+                vTaskDelay(pdMS_TO_TICKS(100));
+                wait_count++;
+            }
+            
+            if (wait_count >= max_wait_seconds * 10) {
+                ESP_LOGW(TAG, "MQTT connection timeout after %d seconds, starting sensors anyway (will retry on publish)", max_wait_seconds);
+            }
+        }
         
         // Start sensor integration (begins 1Hz sampling)
         esp_err_t sensor_start_err = sensor_integration_start();
