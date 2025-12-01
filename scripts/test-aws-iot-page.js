@@ -24,6 +24,21 @@ async function testAwsIoTPage() {
     
     const page = await context.newPage();
     
+    // Monitor console messages for debugging (set up early)
+    const consoleMessages = [];
+    const consoleErrors = [];
+    const consoleLogs = [];
+    
+    page.on('console', msg => {
+        const text = msg.text();
+        consoleMessages.push({ type: msg.type(), text: text, timestamp: Date.now() });
+        if (msg.type() === 'error') {
+            consoleErrors.push(text);
+        } else if (msg.type() === 'log' || msg.type() === 'info') {
+            consoleLogs.push(text);
+        }
+    });
+    
     try {
         // Navigate to the page
         console.log('📄 Navigating to test page...');
@@ -147,21 +162,6 @@ async function testAwsIoTPage() {
         const statusText = await statusDiv.textContent();
         console.log(`   Status message: ${statusText || 'None'}`);
         
-        // Monitor console messages for debugging
-        const consoleMessages = [];
-        const consoleErrors = [];
-        const consoleLogs = [];
-        
-        page.on('console', msg => {
-            const text = msg.text();
-            consoleMessages.push({ type: msg.type(), text: text });
-            if (msg.type() === 'error') {
-                consoleErrors.push(text);
-            } else if (msg.type() === 'log' || msg.type() === 'info') {
-                consoleLogs.push(text);
-            }
-        });
-        
         // Test 11: Wait for data section to become visible (indicates successful connection)
         console.log('\n🧪 Test 11: Waiting for data section to appear...');
         const dataSection = await page.locator('#data-section');
@@ -176,8 +176,8 @@ async function testAwsIoTPage() {
         // Test 12: Verify MQTT connection and wait for sensor data
         console.log('\n🧪 Test 12: Verifying MQTT connection state...');
         
-        // Wait a bit for mqttClient to be assigned
-        await page.waitForTimeout(1000);
+        // Wait a bit for mqttClient to be assigned and connection to establish
+        await page.waitForTimeout(2000);
         
         // Check connection status in the UI
         const connStatusElement = await page.locator('#conn-status');
@@ -187,23 +187,39 @@ async function testAwsIoTPage() {
             console.log(`   Connection status: ${connStatus}`);
         }
         
+        // Check console logs for connection events
+        const connectionLogs = consoleLogs.filter(log => 
+            log.includes('🔌') || log.includes('MQTT client connected') || 
+            log.includes('Successfully subscribed')
+        );
+        if (connectionLogs.length > 0) {
+            console.log(`   📋 Connection logs found (${connectionLogs.length}):`);
+            connectionLogs.forEach(log => console.log(`      - ${log.substring(0, 120)}`));
+        }
+        
         // Check if MQTT client is connected by evaluating in browser context
         const mqttState = await page.evaluate(() => {
             if (typeof window !== 'undefined' && window.mqttClient) {
+                const client = window.mqttClient;
                 return {
-                    connected: window.mqttClient.connected || false,
-                    disconnecting: window.mqttClient.disconnecting || false,
-                    reconnecting: window.mqttClient.reconnecting || false,
-                    options: window.mqttClient.options ? {
-                        clientId: window.mqttClient.options.clientId,
-                        protocol: window.mqttClient.options.protocol
+                    exists: true,
+                    connected: client.connected || false,
+                    disconnecting: client.disconnecting || false,
+                    reconnecting: client.reconnecting || false,
+                    options: client.options ? {
+                        clientId: client.options.clientId,
+                        protocol: client.options.protocol
                     } : null
                 };
             }
-            return null;
+            // Also check if mqttClient variable exists in scope
+            return {
+                exists: false,
+                windowHasMqttClient: typeof window !== 'undefined' && 'mqttClient' in window
+            };
         });
         
-        if (mqttState) {
+        if (mqttState.exists) {
             console.log(`   MQTT Client state: ${JSON.stringify(mqttState)}`);
             if (!mqttState.connected) {
                 console.log('   ⚠️  MQTT client not connected - checking for connection errors...');
@@ -211,7 +227,9 @@ async function testAwsIoTPage() {
                 console.log('   ✅ MQTT client is connected');
             }
         } else {
-            console.log('   ⚠️  MQTT client not found in window object (may still be initializing)');
+            console.log(`   ⚠️  MQTT client not found in window object`);
+            console.log(`   Window has mqttClient property: ${mqttState.windowHasMqttClient}`);
+            console.log('   Checking console logs for connection issues...');
         }
         
         // Wait for sensor data to arrive and verify sensor cards
@@ -254,11 +272,25 @@ async function testAwsIoTPage() {
             
             // Check for MQTT messages in console logs
             const recentLogs = consoleLogs.filter(log => 
-                log.includes('message') || log.includes('MQTT') || log.includes('subscribe') || 
-                log.includes('connect') || log.includes('data')
+                log.includes('📨') || log.includes('MQTT message') || 
+                log.includes('message received') || log.includes('Processed message')
             );
-            if (recentLogs.length > 0 && waited % 10000 === 0) {
-                console.log(`   Recent relevant logs: ${recentLogs.slice(-3).join('; ')}`);
+            if (recentLogs.length > 0) {
+                console.log(`   📨 New message logs detected! (${recentLogs.length} total)`);
+                recentLogs.slice(-2).forEach(log => console.log(`      - ${log.substring(0, 150)}`));
+            }
+            
+            // Re-check MQTT state periodically
+            if (waited % 10000 === 0 && !mqttState.exists) {
+                const currentState = await page.evaluate(() => {
+                    return typeof window !== 'undefined' && window.mqttClient ? {
+                        exists: true,
+                        connected: window.mqttClient.connected
+                    } : { exists: false };
+                });
+                if (currentState.exists) {
+                    console.log(`   ✅ MQTT client now found! Connected: ${currentState.connected}`);
+                }
             }
             
             if (sensorCards.length > 0 && messageCount > 0) {
