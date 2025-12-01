@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Naptick - Device Jobs To Be Done & Firmware Input</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f7fafc;
+      --bg-alt:#ffffff;
+      --card-bg:#ffffff;
+      --accent:#3182ce;
+      --accent-soft:rgba(49,130,206,0.12);
+      --text-main:#1a202c;
+      --text-soft:#4a5568;
+      --border-soft:#e2e8f0;
+      --heading:#1a202c;
+      --danger:#e53e3e;
+      --ok:#d69e2e;
+      --good:#38a169;
+    }
+    *{box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    [id]{scroll-margin-top:70px;}
+    body{
+      margin:0;
+      padding:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:var(--bg);
+      color:var(--text-main);
+      line-height:1.5;
+    }
+    .page{
+      width:80%;
+      margin:0 10%;
+      padding:24px 24px 48px;
+      background:var(--bg-alt);
+    }
+    header{ text-align:left; margin-bottom:24px; }
+    .eyebrow{
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      font-size:11px;
+      color:var(--text-soft);
+      margin-bottom:6px;
+    }
+    h1{
+      font-size:26px;
+      margin:0 0 6px;
+      color:var(--heading);
+    }
+    .subtitle{
+      font-size:14px;
+      color:var(--text-soft);
+      max-width:520px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:3px 9px;
+      border-radius:999px;
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.16em;
+      color:var(--accent);
+      background:var(--accent-soft);
+      margin-top:10px;
+    }
+    .badge-dot{
+      width:6px;
+      height:6px;
+      border-radius:999px;
+      background:var(--accent);
+    }
+    h2{
+      font-size:18px;
+      margin:24px 0 10px;
+      color:var(--heading);
+    }
+    h3{
+      font-size:15px;
+      margin:16px 0 6px;
+      color:var(--heading);
+    }
+    p{
+      margin:4px 0 8px;
+      font-size:13px;
+      color:var(--text-soft);
+    }
+    ul{
+      padding-left:18px;
+      margin:4px 0 8px;
+    }
+    li{
+      font-size:13px;
+      color:var(--text-soft);
+      margin-bottom:3px;
+    }
+    .section-card{
+      background:var(--card-bg);
+      border-radius:10px;
+      border:1px solid var(--border-soft);
+      padding:14px 14px 12px;
+      margin-bottom:12px;
+    }
+    .jtbd-card{
+      background:var(--card-bg);
+      border-radius:10px;
+      border:1px solid var(--border-soft);
+      padding:14px 14px 12px;
+      margin-bottom:12px;
+    }
+    .jtbd-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:8px;
+      margin-bottom:4px;
+    }
+    .jtbd-title{
+      font-size:14px;
+      font-weight:600;
+      color:var(--heading);
+    }
+    .jtbd-tag{
+      font-size:11px;
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid rgba(160,174,192,0.7);
+      color:var(--text-soft);
+      white-space:nowrap;
+      background:#f7fafc;
+    }
+    .jtbd-label{
+      font-size:11px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:#718096;
+      margin-top:6px;
+      margin-bottom:2px;
+    }
+    .jtbd-job{
+      font-size:13px;
+      color:#2d3748;
+      margin-bottom:6px;
+    }
+    .badge-good{border-color:var(--good);color:var(--good);}
+    .badge-warn{border-color:var(--ok);color:var(--ok);}
+    .badge-bad{border-color:var(--danger);color:var(--danger);}
+    hr{
+      border:none;
+      border-top:1px dashed #e2e8f0;
+      margin:20px 0 14px;
+    }
+    .footnote{
+      font-size:11px;
+      color:#718096;
+      margin-top:10px;
+    }
+    /* Quick Navigation */
+    .quick-nav{
+      background:var(--bg);
+      border:1px solid var(--border-soft);
+      border-radius:10px;
+      padding:20px 24px;
+      margin-bottom:24px;
+    }
+    .quick-nav-title{
+      font-size:14px;
+      font-weight:600;
+      color:var(--heading);
+      margin-bottom:16px;
+    }
+    .quick-nav-grid{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:24px;
+    }
+    .quick-nav-col{}
+    .quick-nav-heading{
+      font-size:11px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+      color:var(--text-soft);
+      margin-bottom:10px;
+    }
+    .quick-nav-list{
+      list-style:none;
+      padding:0;
+      margin:0;
+    }
+    .quick-nav-list li{
+      margin-bottom:6px;
+    }
+    .quick-nav-link{
+      font-size:13px;
+      color:#2b6cb0;
+      text-decoration:none;
+      transition:color 0.2s ease;
+    }
+    .quick-nav-link:hover{
+      color:#1a4971;
+      text-decoration:underline;
+    }
+    @media(max-width:600px){
+      .quick-nav-grid{
+        grid-template-columns:1fr;
+        gap:20px;
+      }
+    }
+    @media(min-width:768px){
+      h1{font-size:28px;}
+      .page{margin:32px auto;}
+    }
+    /* Print styles for PDF */
+    @media print{
+      body{
+        background:#fff;
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+      .page{
+        width:100%;
+        margin:0;
+        padding:20px 40px;
+      }
+      .quick-nav{
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+        page-break-inside:avoid;
+      }
+      .section-card, .jtbd-card{
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+        page-break-inside:avoid;
+        break-inside:avoid;
+      }
+      h2, h3{
+        page-break-after:avoid;
+        break-after:avoid;
+      }
+      section{
+        page-break-before:auto;
+      }
+      hr{
+        page-break-after:always;
+      }
+      .badge, .jtbd-tag, .badge-good, .badge-warn, .badge-bad{
+        -webkit-print-color-adjust:exact;
+        print-color-adjust:exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="eyebrow">Naptick · Naptick Device</div>
+      <h1>Device Jobs To Be Done &amp; Firmware Input</h1>
+      <p class="subtitle">
+        A device-first view of how users interact with Naptick in the bedroom, which behaviours firmware must
+        support, and what data must flow to/from the cloud. App UX is intentionally kept out of scope here.
+      </p>
+      <div class="badge">
+        <span class="badge-dot"></span>
+        Firmware Input · v0.2
+      </div>
+    </header>
+
+    <!-- Quick Navigation -->
+    <div class="quick-nav">
+      <div class="quick-nav-title">Quick Navigation</div>
+      <div class="quick-nav-grid">
+        <div class="quick-nav-col">
+          <div class="quick-nav-heading">Overview</div>
+          <ul class="quick-nav-list">
+            <li><a href="#assumptions" class="quick-nav-link">1. Global Assumptions</a></li>
+          </ul>
+        </div>
+        <div class="quick-nav-col">
+          <div class="quick-nav-heading">Device JTBD</div>
+          <ul class="quick-nav-list">
+            <li><a href="#pre-sleep" class="quick-nav-link">2.A Pre-sleep</a></li>
+            <li><a href="#sleep-wake" class="quick-nav-link">2.B Sleep &amp; Wake</a></li>
+            <li><a href="#environment" class="quick-nav-link">2.C Environment</a></li>
+            <li><a href="#behaviour-feedback" class="quick-nav-link">2.D Behaviour &amp; Feedback</a></li>
+            <li><a href="#on-demand" class="quick-nav-link">2.E On-demand &amp; Utilities</a></li>
+          </ul>
+        </div>
+        <div class="quick-nav-col">
+          <div class="quick-nav-heading">System</div>
+          <ul class="quick-nav-list">
+            <li><a href="#data-upload" class="quick-nav-link">3. Data Upload (Sensors)</a></li>
+            <li><a href="#usage-analytics" class="quick-nav-link">4. Usage Analytics</a></li>
+            <li><a href="#device-status" class="quick-nav-link">5. Device Realtime Status</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. GLOBAL ASSUMPTIONS -->
+    <section id="assumptions">
+      <h2>1. Global Assumptions</h2>
+
+      <div class="section-card">
+        <h3>1.1 Three routine types &amp; scheduling</h3>
+        <p>The device supports three core routine categories:</p>
+        <ul>
+          <li>Pre-sleep routine</li>
+          <li>Sleep routine</li>
+          <li>Wake-up routine</li>
+        </ul>
+        <p>Users can:</p>
+        <ul>
+          <li>Schedule each routine on specific days/times.</li>
+          <li>Disable any of the three (e.g., no pre-sleep, no wake-up, or no sleep routine).</li>
+          <li>Choose per routine whether they want lights, sound, both, or none.</li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>1.2 Per-routine behaviour is user-configurable</h3>
+        <p>For each routine type, users can choose:</p>
+        <ul>
+          <li>Lights only</li>
+          <li>Sound only</li>
+          <li>Lights + sound</li>
+          <li>None (routine runs logically, but device stays quiet/dark)</li>
+        </ul>
+        <p>Firmware must respect these choices, ensuring routines never feel intrusive for users who prefer minimal or zero stimulation.</p>
+      </div>
+
+      <div class="section-card">
+        <h3>1.3 Sleep Mode = absolutely non-intrusive</h3>
+        <p>Sleep Mode is a strong guarantee: if enabled, the device will not disturb the user unless explicitly asked to.</p>
+        <ul>
+          <li>No automatic TTS during the night.</li>
+          <li>No new automatic light changes or animations triggered by the device itself.</li>
+          <li>If sleep routine includes media, only that media runs—no extra surprise prompts.</li>
+          <li>Device only acts in Sleep Mode if:
+            <ul>
+              <li>The user explicitly interacts (tap/button/knob/gesture), or</li>
+              <li>The app/cloud sends an explicit user-triggered command (e.g., "play X now").</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>1.4 Configurable timings, intensities &amp; parameters (cloud-controlled)</h3>
+        <p>Firmware should avoid hard-coding behavioural constants. Instead, it exposes parameters that can be tuned from the cloud/app without a firmware release.</p>
+        <p>Examples of parameters that must be configurable:</p>
+        <ul>
+          <li>Time offsets: T-90, T-60, T-30, T-5, T-2, etc.</li>
+          <li>Durations: wake-up ramp, snooze length, effect length, V2V session length, motion-light timeout.</li>
+          <li>Light behaviour:
+            <ul>
+              <li>Colours per state (prep, listening, ready, sleep, morning, error).</li>
+              <li>Brightness levels &amp; caps per feature (e.g., night path at 3–5%).</li>
+              <li>Transition profiles: fade curves, sunrise ramp profiles, breathing animation timing.</li>
+            </ul>
+          </li>
+          <li>Audio behaviour:
+            <ul>
+              <li>Base &amp; max volumes per routine type.</li>
+              <li>Ramp curves for alarms, wake-up, noise shield fade in/out.</li>
+              <li>Sound profiles (white/brown noise, ambient beds, etc.).</li>
+            </ul>
+          </li>
+          <li>Voice behaviour:
+            <ul>
+              <li>Whether TTS is enabled per feature (pre-sleep nudges, recaps, V2V, effects).</li>
+              <li>Voice persona selection, if supported.</li>
+            </ul>
+          </li>
+          <li>Environment thresholds:
+            <ul>
+              <li>Per-sensor thresholds for good/OK/bad (CO₂, temp, humidity, PM2.5, noise, light).</li>
+              <li>Hysteresis/debounce rules to avoid flickering states.</li>
+            </ul>
+          </li>
+          <li>Noise shield behaviour:
+            <ul>
+              <li>Spike thresholds for activating shield.</li>
+              <li>Max shield volume and max on-time.</li>
+            </ul>
+          </li>
+          <li>Effects framework:
+            <ul>
+              <li>Which effects are exposed on the Effects button.</li>
+              <li>Per-effect parameters (timings, colours, audio choices).</li>
+            </ul>
+          </li>
+        </ul>
+        <p><strong>Principle:</strong> Firmware = execution engine. Cloud/App = brain that sets the parameters.</p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- 2. JTBD LIST -->
+    <section id="jtbd">
+      <h2>2. Device-Side Jobs To Be Done (JTBD)</h2>
+      <p>All JTBD below are strictly from the perspective of the physical device in the room. The app may configure and orchestrate, but does not appear in the user language here.</p>
+
+      <!-- 2.A PRE-SLEEP WINDOW -->
+      <h3 id="pre-sleep">2.A · Pre-sleep Window</h3>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Schedule-aware evening heads-up (T-90)</div>
+          <div class="jtbd-tag">JTBD-PS-01</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When I come near the device in the evening on a day I have a routine scheduled, I want it to gently tell me what tonight's plan is and how my room looks, so I can start shifting into wind-down mode without touching my phone.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Shows an evening wind-down light state (calm prep colour, e.g., F3D8B5).</li>
+          <li>Speaks a short TTS heads-up about tonight's routine and basic room status, only if allowed.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Pre-sleep nudge with calm tone</div>
+          <div class="jtbd-tag">JTBD-PS-02</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          As I get closer to bedtime, I want a gentle reminder and a reassuring message from the device, so I feel guided into sleep instead of rushed.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Shows a distinct pre-sleep light state.</li>
+          <li>Speaks one short nudge plus one affirmation/positive line if pre-sleep messages are enabled.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Final "routine is about to start" cue</div>
+          <div class="jtbd-tag">JTBD-PS-03</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          Just before my routine actually starts, I want a clear signal from the device that we're about to begin, so I can wrap up what I'm doing and settle in.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Flashes a green (or equivalent "starting") light state.</li>
+          <li>Speaks a short line such as "Your routine is starting in X minutes", where X is configurable.</li>
+        </ul>
+      </div>
+
+      <!-- 2.B SLEEP, WAKE & OVERRIDES -->
+      <h3 id="sleep-wake">2.B · Sleep, Wake &amp; Overrides</h3>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Start and switch routines directly on the device</div>
+          <div class="jtbd-tag">JTBD-SW-01</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When I'm in bed, I want to start, stop, or switch my routine directly from the device, so I don't have to touch my phone once I've lain down.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Supports tap/double-tap/long-press patterns to start scheduled, short, or alternative routines, or stop them.</li>
+          <li>Supports voice commands (when mic is enabled) like "Start routine", "Short routine", "Stop", "Next".</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Control the routine while it's running</div>
+          <div class="jtbd-tag">JTBD-SW-02</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          While my routine is playing, I want to be able to adjust volume, lights, or skip steps using the device, so I can stay in bed and still stay comfortable.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Shows a blue "listening" light while capturing voice.</li>
+          <li>Supports volume up/down, light brighter/dimmer, skip/next/stop/pause via voice and controls.</li>
+          <li>Routine continues from the updated state without restarting from scratch.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Respectful, silent Sleep Mode</div>
+          <div class="jtbd-tag">JTBD-SW-03</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          Once I'm actually asleep or in sleep mode, I want the device to be completely quiet and dark unless I explicitly interact, so it never wakes me up by surprise.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>No automatic TTS or new light animations while Sleep Mode is ON.</li>
+          <li>If a sleep routine with media is chosen, only that media runs; no extra prompts.</li>
+          <li>Device responds only to explicit user interactions or explicit commands from app.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Gentle wake-up ramp (sunrise alarm)</div>
+          <div class="jtbd-tag">JTBD-SW-04</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When it's time to wake up, I want the device to slowly increase light and sound over a chosen duration, so I wake up naturally instead of being shocked by an abrupt alarm.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Runs a sunrise effect from near-zero to desired brightness over a configurable ramp duration.</li>
+          <li>Audio volume ramps up along a configurable curve.</li>
+          <li>If wake-up routine is disabled, device stays silent and dark.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Hard "Do Not Disturb tonight" toggle</div>
+          <div class="jtbd-tag">JTBD-SW-05</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          On some nights (guests, kids unwell, travel, etc.), I want to quickly tell the device "do not disturb at all tonight" directly on the device, so I can override all scheduled behaviour without diving into settings.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Supports a clear gesture (e.g., 5s long-press) to enable "DND Tonight".</li>
+          <li>Once ON, all scheduled pre-sleep, sleep and wake-up outputs are suppressed for that night.</li>
+          <li>Only explicit user-triggered actions (effects, V2V, motion path light, etc.) are allowed.</li>
+          <li>Shows a subtle but visible indicator that DND Tonight is active.</li>
+        </ul>
+      </div>
+
+      <!-- 2.C ENVIRONMENT & SENSORS -->
+      <h3 id="environment">2.C · Environment &amp; Sensors</h3>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Quick environment understanding from the device</div>
+          <div class="jtbd-tag">JTBD-EN-01</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          At any time, I want to quickly know whether my bedroom environment is good, okay, or bad for sleep just by looking at or lightly interacting with the device, so I don't always need to open the app.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Shows overall environment status via indicator(s) (e.g., <span class="badge-good">green = healthy</span>, <span class="badge-warn">amber = needs attention</span>, <span class="badge-bad">red = poor</span>).</li>
+          <li>Optionally supports per-sensor indications for core metrics (CO₂, temp, humidity, PM2.5, noise, light).</li>
+          <li>On tap or "How's my room?", gives a short spoken summary of key issues.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Room score notifications when things are off</div>
+          <div class="jtbd-tag">JTBD-EN-02</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When my room parameters go into a bad zone, I want the device to warn me gently and tell me what's wrong, so I can fix it before it ruins my sleep.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>When thresholds enter "red", shows a clear problem indicator (e.g., red ring).</li>
+          <li>Outside Sleep Mode, can play a very short cue like "Air quality isn't ideal; try opening a window."</li>
+          <li>In Sleep Mode, respects silence—only static/subtle visual indicators if allowed.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Night path light via motion</div>
+          <div class="jtbd-tag">JTBD-EN-03</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          If I wake up at night and need to move (bathroom, water, kids), I want the device to automatically give me just enough warm light to see when it senses movement, so I can go back to sleep quickly without touching anything.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Uses motion sensing (e.g., PIR) to detect movement near the device during night/sleep windows.</li>
+          <li>When motion is detected, turns on a very low, warm light (e.g., 3–5% brightness) suitable for navigation.</li>
+          <li>Automatically dims and turns off after ~2 minutes with no further motion (timeout configurable).</li>
+          <li>Respects Sleep Mode: no TTS, no bright/stimulating colours.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Adaptive "noise shield" for sudden disturbances</div>
+          <div class="jtbd-tag">JTBD-EN-04</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When there are sudden noises at night (traffic, horn, neighbours), I want the device to gently raise a layer of soothing sound, so those spikes bother me less without fully waking me.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Monitors ambient noise levels and detects spikes above a configured threshold.</li>
+          <li>On spike, fades in low-level noise (e.g., brown/white) for a short, configurable duration, then fades out.</li>
+          <li>Respects Sleep Mode: no voice and no light changes for this feature.</li>
+        </ul>
+      </div>
+
+      <!-- 2.D BEHAVIOUR & FEEDBACK LOOPS -->
+      <h3 id="behaviour-feedback">2.D · Behaviour &amp; Feedback Loops</h3>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Simple morning recap + affirmation</div>
+          <div class="jtbd-tag">JTBD-BF-01</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          In the morning, after I've woken up, I want the device to give me one short summary of my night and one small positive nudge, so I feel informed and encouraged without being overloaded.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Plays a single short TTS block: one-line recap + one-line affirmation/encouragement.</li>
+          <li>Uses a calm morning light state while speaking.</li>
+          <li>Avoids multiple segmented prompts for this use case.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Bedtime "phone drop" ritual</div>
+          <div class="jtbd-tag">JTBD-BF-02</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When I'm about to sleep, I want a clear, satisfying signal from the device that it's happy I've kept my phone away, so I feel rewarded for doing the right thing without opening any app.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Near bedtime, when phone is docked/charging or moved away (app/Bluetooth logic), plays a 2–3s "well done" light animation.</li>
+          <li>Optionally plays a very soft chime if user has enabled sound for this ritual.</li>
+          <li>Reinforces the habit of putting phone away before sleep.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">One-gesture night rating</div>
+          <div class="jtbd-tag">JTBD-BF-03</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          In the morning, I want to quickly tell the device how my night felt with one simple gesture, so it learns about my sleep without me talking or touching the app.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>After wake-up, within a defined window, maps top button taps to ratings (e.g., 1 tap = bad, 2 = okay, 3 = great).</li>
+          <li>Gives tiny visual confirmation (e.g., 1–3 soft pulses) that it recorded the answer.</li>
+          <li>Sends rating to cloud for learning and analytics.</li>
+        </ul>
+      </div>
+
+      <!-- 2.E ON-DEMAND COACHING & UTILITIES -->
+      <h3 id="on-demand">2.E · On-demand Coaching &amp; Utilities</h3>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Voice-to-Voice coach on demand (V2V)</div>
+          <div class="jtbd-tag">JTBD-OD-01</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When I'm stressed, overthinking, or anxious at night, I want to start a guided voice-based session from the device, so I can calm down and fall asleep faster.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Let users trigger a V2V session via voice ("Help me relax", "Coach me") or a button gesture.</li>
+          <li>Runs guided sequences (release stress, body relaxation, reduce overthinking, etc.).</li>
+          <li>Uses device voice pipeline; logic/response content from cloud.</li>
+        </ul>
+      </div>
+
+      <div class="jtbd-card">
+        <div class="jtbd-header">
+          <div class="jtbd-title">Effects button for instant exercises (incl. breathing pacer)</div>
+          <div class="jtbd-tag">JTBD-OD-02</div>
+        </div>
+        <div class="jtbd-label">Job</div>
+        <p class="jtbd-job">
+          When I'm near the device and want a quick, simple exercise without going into full routines or the app, I want to press one Effects button and cycle through instant effects, so I can get help in seconds.
+        </p>
+        <div class="jtbd-label">On device</div>
+        <ul>
+          <li>Provides an Effects button/gesture to cycle through configured instant effects.</li>
+          <li>Each effect starts immediately when selected, independent of main routines.</li>
+          <li>Initial example effects:
+            <ul>
+              <li>Visual breathing pacer (expanding/contracting light; optional soft sound).</li>
+              <li>Short calming body scan (guided voice + gentle lights).</li>
+              <li>Quick "stress reset" (brief grounding exercise with light or sound).</li>
+              <li>2-minute gratitude/reflection (short guided prompts with ambient bed).</li>
+              <li>Simple focus/quieting effect (stable low-light + low ambient sound).</li>
+            </ul>
+          </li>
+          <li>Cloud can add/change effect definitions; firmware just needs a generic effects framework.</li>
+        </ul>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- 3. DATA UPLOAD -->
+    <section id="data-upload">
+      <h2>3. Data Upload – Sensors → Cloud</h2>
+      <p>The device should push a compact snapshot of key sensor data to the cloud at regular intervals. The goal is to track environment quality and device health over time without flooding the network.</p>
+
+      <div class="section-card">
+        <h3>3.1 Sensor upload cadence</h3>
+        <ul>
+          <li>Default upload interval: every 2 minutes.</li>
+          <li>The upload interval is a configurable parameter (e.g., 30s–10min range) controlled from cloud.</li>
+          <li>Uploads should be batched and efficient (single payload with all sensor values + timestamps).</li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>3.2 Sensor set for Naptick (environment &amp; device)</h3>
+        <p>Current planned sensor/metric set (to be updated as hardware is finalised):</p>
+        <ul>
+          <li>Ambient temperature (°C)</li>
+          <li>Relative humidity (%)</li>
+          <li>CO₂ concentration (ppm)</li>
+          <li>VOC index (dimensionless index or ppb, depending on sensor)</li>
+          <li>PM2.5 (µg/m³; optionally PM1.0/PM10 if available)</li>
+          <li>Ambient light level (lux or relative scale)</li>
+          <li>Sound level (approx. dB or normalised level, not voice content)</li>
+          <li>Motion detection (binary or short history; from PIR or equivalent)</li>
+          <li>Device internal temperature (for thermal/health monitoring)</li>
+          <li>Supply / battery status (plugged, battery %, voltage if applicable)</li>
+        </ul>
+        <p>Each upload should include at least: sensor name, value, units (or agreed schema), timestamp, and optionally quality/validity flags (e.g., sensor error).</p>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- 4. USAGE ANALYTICS -->
+    <section id="usage-analytics">
+      <h2>4. Usage Analytics – How the Device is Used</h2>
+      <p>We need a clear picture of how users actually interact with routines, effects, and other features, so we can improve coaching and product fit.</p>
+
+      <div class="section-card">
+        <h3>4.1 Routine lifecycle events</h3>
+        <p>For each routine (pre-sleep, sleep, wake-up, nap/effects where applicable), log:</p>
+        <ul>
+          <li><strong>Routine started:</strong> type, start time, trigger source (schedule, button, voice, app).</li>
+          <li><strong>Routine state changes:</strong> moved to short version, skipped segments, paused/resumed.</li>
+          <li><strong>Routine ended:</strong> end time, reason (completed, user stopped, DND Tonight applied, error).</li>
+          <li><strong>Actual vs scheduled:</strong> how late/early the start was relative to planned time.</li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>4.2 Interaction &amp; control events</h3>
+        <p>Key interactions to capture:</p>
+        <ul>
+          <li><strong>Button events:</strong> single/double/long-press patterns with context (which state/device mode).</li>
+          <li><strong>Volume changes:</strong> new volume, previous value, during which routine/feature.</li>
+          <li><strong>Light overrides:</strong> manual brightness changes vs automatic behaviour.</li>
+          <li><strong>Snooze actions:</strong> count per wake-up, snooze duration used.</li>
+          <li><strong>DND Tonight toggled:</strong> on/off, time, whether routines were pending.</li>
+          <li><strong>Effects usage:</strong> which effect chosen, duration, completion vs early stop.</li>
+          <li><strong>Noise shield activations:</strong> count, duration, peak noise level that triggered it.</li>
+          <li><strong>Motion path light activations:</strong> count per night, total on-time.</li>
+          <li><strong>Night ratings:</strong> rating value, time logged relative to wake-up.</li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>4.3 Analytics principles</h3>
+        <ul>
+          <li>Events should be lightweight, batched where possible, and resilient to temporary connectivity loss.</li>
+          <li>Privacy by design: only necessary metadata is sent (no raw audio content as analytics).</li>
+          <li>Cloud is responsible for aggregations and dashboards; firmware just emits structured events.</li>
+        </ul>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- 5. DEVICE REALTIME STATUS -->
+    <section id="device-status">
+      <h2>5. Device Realtime Status &amp; Remote Actions</h2>
+      <p>The cloud should be able to see an accurate snapshot of device health and state, and perform a limited set of safe remote actions for support and experiments.</p>
+
+      <div class="section-card">
+        <h3>5.1 Realtime status fields</h3>
+        <p>At minimum, each device should regularly expose:</p>
+        <ul>
+          <li><strong>Online / offline status</strong> and last-seen timestamp.</li>
+          <li><strong>Current high-level mode:</strong>
+            <ul>
+              <li>Idle / Day</li>
+              <li>Pre-sleep (T-xx window)</li>
+              <li>Routine running (pre-sleep, sleep, wake, effects, V2V, nap)</li>
+              <li>Sleep Mode active</li>
+              <li>DND Tonight active</li>
+              <li>Updating / OTA</li>
+            </ul>
+          </li>
+          <li><strong>Network quality:</strong>
+            <ul>
+              <li>Wi-Fi RSSI → mapped to "bars" in UI (e.g., 0–3 bars).</li>
+              <li>SSID (hashed or partially masked if needed).</li>
+            </ul>
+          </li>
+          <li><strong>Sensor health:</strong>
+            <ul>
+              <li>Per-sensor status: OK / Degraded / Error / Missing.</li>
+              <li>Last successful reading timestamp per sensor.</li>
+            </ul>
+          </li>
+          <li><strong>Media state:</strong>
+            <ul>
+              <li>Current volume % (with note if at user comfort cap).</li>
+              <li>Current light intensity % and colour/state code.</li>
+            </ul>
+          </li>
+          <li><strong>System health:</strong>
+            <ul>
+              <li>Firmware version, build number.</li>
+              <li>Last OTA attempt status (success/fail, error code).</li>
+              <li>Device internal temperature and any thermal warnings.</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <div class="section-card">
+        <h3>5.2 Allowed remote control actions (from cloud/app)</h3>
+        <p>These are the core actions the backend should be able to request; firmware enforces them:</p>
+        <ul>
+          <li><strong>Adjust media:</strong>
+            <ul>
+              <li>Set volume to a specific value or relative change, respecting comfort caps.</li>
+              <li>Set light intensity and/or state (within safe ranges).</li>
+            </ul>
+          </li>
+          <li><strong>State toggles:</strong>
+            <ul>
+              <li>Enable/disable Sleep Mode (if user has given permission).</li>
+              <li>Enable/disable DND Tonight.</li>
+            </ul>
+          </li>
+          <li><strong>Config updates:</strong>
+            <ul>
+              <li>Push new parameter sets (timings, thresholds, effects config).</li>
+              <li>Update environment thresholds and noise shield parameters.</li>
+            </ul>
+          </li>
+          <li><strong>Maintenance:</strong>
+            <ul>
+              <li>Trigger a safe reboot (for support/diagnostics).</li>
+              <li>Initiate OTA firmware update (with progress and rollback handling).</li>
+              <li>Factory reset (only via strong, authenticated path; clears user config but keeps device identity).</li>
+            </ul>
+          </li>
+        </ul>
+        <p>Remote actions should be auditable (who/what triggered, when, and with which parameters) and protected with appropriate auth/permissions.</p>
+      </div>
+    </section>
+
+    <p class="footnote">
+      Next step (separate doc): map each JTBD and system requirement to explicit firmware modules (state machine, scheduler, sensor manager, analytics emitter, config handler), and to specific MQTT/HTTP topics and payload schemas.
+    </p>
+  </div>
+</body>
+</html>
