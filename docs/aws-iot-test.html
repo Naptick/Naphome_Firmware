@@ -232,12 +232,12 @@
 
         <div class="section">
             <h2>Connection Settings</h2>
-            <div class="form-group">
+            <div class="form-group hidden">
                 <label for="auth-method">Authentication Method:</label>
                 <select id="auth-method" onchange="toggleAuthMethod()">
-                    <option value="cognito">AWS Cognito Identity Pool (Recommended)</option>
+                    <option value="proxy" selected>Backend Proxy (No Credentials Required)</option>
+                    <option value="cognito">AWS Cognito Identity Pool</option>
                     <option value="iam">IAM Access Keys</option>
-                    <option value="proxy">Backend Proxy (GitHub Secrets)</option>
                 </select>
             </div>
             <div class="connection-info">
@@ -250,7 +250,7 @@
                     <input type="text" id="region" placeholder="ap-south-1" value="ap-south-1">
                 </div>
             </div>
-            <div id="cognito-auth" class="auth-section">
+            <div id="cognito-auth" class="auth-section hidden">
                 <div class="connection-info">
                     <div class="form-group" style="flex: 1; min-width: 200px;">
                         <label for="cognito-identity-pool-id">Cognito Identity Pool ID:</label>
@@ -277,17 +277,16 @@
                     <strong>Security Note:</strong> IAM keys are long-lived credentials. Consider using Cognito Identity Pools for better security.
                 </div>
             </div>
-            <div id="proxy-auth" class="auth-section hidden">
-                <div class="connection-info">
+            <div id="proxy-auth" class="auth-section">
+                <div class="status status-success" style="margin-top: 10px; margin-bottom: 10px;">
+                    <strong>✅ No Credentials Required:</strong> This page uses a secure backend proxy. All authentication is handled server-side. 
+                    Just select a device below and click Connect!
+                </div>
+                <div class="connection-info hidden">
                     <div class="form-group" style="flex: 1; min-width: 200px;">
                         <label for="proxy-url">Proxy Endpoint URL:</label>
                         <input type="text" id="proxy-url" placeholder="https://your-proxy.example.com/connect" value="https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect">
                     </div>
-                </div>
-                <div class="status status-info" style="margin-top: 10px;">
-                    <strong>Backend Proxy:</strong> Uses AWS Lambda + API Gateway. Credentials stored securely in GitHub Secrets. 
-                    See <a href="AWS_IOT_TEST_README.md#backend-proxy" target="_blank">setup instructions</a>.
-                    <br><small>Current endpoint: <code>https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect</code></small>
                 </div>
             </div>
             <div class="device-selector">
@@ -450,11 +449,8 @@
                         secretAccessKey: secretKey
                     };
                 } else if (authMethod === 'proxy') {
-                    const proxyUrl = document.getElementById('proxy-url').value.trim();
-                    if (!proxyUrl) {
-                        showStatus('Please enter proxy endpoint URL', 'error');
-                        return;
-                    }
+                    // Use default proxy URL if not provided
+                    const proxyUrl = document.getElementById('proxy-url').value.trim() || 'https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect';
                     await connectViaProxy(proxyUrl, endpoint, region, device, topic);
                     return; // Proxy handles connection differently
                 }
@@ -698,9 +694,10 @@
             showStatus('Connecting via backend proxy...', 'info');
             
             try {
-                // The proxy should provide a WebSocket URL or handle MQTT connection
-                // This is a placeholder - implement based on your proxy API
-                const response = await fetch(`${proxyUrl}/connect`, {
+                // Ensure proxy URL doesn't have duplicate /connect
+                const apiUrl = proxyUrl.endsWith('/connect') ? proxyUrl : `${proxyUrl}/connect`;
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -712,23 +709,36 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Proxy error: ${response.statusText}`);
+                    let errorMessage = `Proxy error: ${response.status} ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.error) {
+                            errorMessage += ` - ${errorData.error}`;
+                        }
+                    } catch (e) {
+                        // Ignore JSON parse errors
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 const data = await response.json();
                 
                 if (data.websocketUrl) {
                     // Proxy provides signed WebSocket URL
+                    showStatus('Received signed WebSocket URL, connecting...', 'info');
                     const mqtt = window.mqtt;
                     mqttClient = mqtt.connect(data.websocketUrl, {
                         clientId: `web-client-${Date.now()}`,
-                        protocol: 'wss'
+                        protocol: 'wss',
+                        reconnectPeriod: 5000,
+                        connectTimeout: 10000
                     });
                     setupMqttHandlers(topic);
                 } else {
-                    throw new Error('Proxy did not return websocketUrl');
+                    throw new Error('Proxy did not return websocketUrl. Response: ' + JSON.stringify(data));
                 }
             } catch (error) {
+                console.error('Proxy connection error:', error);
                 showStatus(`Proxy connection failed: ${error.message}`, 'error');
             }
         }
@@ -785,7 +795,16 @@
 
         // Initialize device selector
         onDeviceSelect();
+        
+        // Set default auth method to proxy (no credentials required)
+        document.getElementById('auth-method').value = 'proxy';
         toggleAuthMethod(); // Initialize auth method display
+        
+        // Ensure proxy URL has default value even when hidden
+        const proxyUrlInput = document.getElementById('proxy-url');
+        if (!proxyUrlInput.value.trim()) {
+            proxyUrlInput.value = 'https://2ushw6qnzf.execute-api.ap-south-1.amazonaws.com/prod/connect';
+        }
     </script>
 </body>
 </html>
