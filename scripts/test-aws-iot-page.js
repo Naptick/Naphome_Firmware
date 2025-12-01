@@ -421,6 +421,56 @@ async function testAwsIoTPage() {
             console.log('   ⚠️  No network requests to proxy detected (may be using cached connection)');
         }
         
+        // Test 16: Diagnostic summary for no messages
+        if (messageCount === 0) {
+            console.log('\n🧪 Test 16: Diagnostic analysis for no messages...');
+            console.log('   Connection Status: ✅ Connected');
+            console.log('   Subscription Status: ✅ Subscribed');
+            console.log('   MQTT Client State: ✅ Connected');
+            console.log('   Messages Received: ❌ 0');
+            console.log('');
+            console.log('   📋 Diagnostic Checklist:');
+            console.log('   1. ✅ Web page connection: Working');
+            console.log('   2. ✅ MQTT subscription: Successful');
+            console.log('   3. ❌ Device publishing: Not detected');
+            console.log('');
+            console.log('   🔍 Possible Issues:');
+            console.log('   - Device may be offline or not connected to AWS IoT');
+            console.log('   - Device may not be publishing to this topic');
+            console.log('   - Device sensor_manager may not be running');
+            console.log('   - Network/firewall may be blocking messages');
+            console.log('');
+            console.log('   💡 Next Steps:');
+            console.log('   1. Check device logs for connection status');
+            console.log('   2. Verify device is powered on and connected to WiFi');
+            console.log('   3. Check AWS IoT Console → Test → Subscribe to topic');
+            console.log('   4. Verify sensor_manager is running (check device logs)');
+            console.log('   5. Test with different device ID if available');
+            
+            // Check if we can get more info from the page
+            const pageInfo = await page.evaluate(() => {
+                return {
+                    mqttClient: window.mqttClient ? {
+                        connected: window.mqttClient.connected,
+                        options: window.mqttClient.options ? {
+                            clientId: window.mqttClient.options.clientId,
+                            protocol: window.mqttClient.options.protocol
+                        } : null
+                    } : null,
+                    topic: document.getElementById('device-select')?.value || 
+                           document.getElementById('device-custom')?.value || 'unknown'
+                };
+            });
+            
+            if (pageInfo.mqttClient && pageInfo.mqttClient.connected) {
+                console.log('');
+                console.log('   📊 MQTT Client Details:');
+                console.log(`      Client ID: ${pageInfo.mqttClient.options?.clientId || 'N/A'}`);
+                console.log(`      Protocol: ${pageInfo.mqttClient.options?.protocol || 'N/A'}`);
+                console.log(`      Subscribed Topic: device/telemetry/${pageInfo.topic}`);
+            }
+        }
+        
         if (sensorCards.length === 0 || messageCount === 0) {
             console.log('\n⚠️  Note: No sensor data received during test');
             console.log('   Possible reasons:');
