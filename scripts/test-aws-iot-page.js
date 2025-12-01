@@ -176,6 +176,9 @@ async function testAwsIoTPage() {
         // Test 12: Verify MQTT connection and wait for sensor data
         console.log('\n🧪 Test 12: Verifying MQTT connection state...');
         
+        // Wait a bit for mqttClient to be assigned
+        await page.waitForTimeout(1000);
+        
         // Check connection status in the UI
         const connStatusElement = await page.locator('#conn-status');
         let connStatus = '';
@@ -190,7 +193,11 @@ async function testAwsIoTPage() {
                 return {
                     connected: window.mqttClient.connected || false,
                     disconnecting: window.mqttClient.disconnecting || false,
-                    reconnecting: window.mqttClient.reconnecting || false
+                    reconnecting: window.mqttClient.reconnecting || false,
+                    options: window.mqttClient.options ? {
+                        clientId: window.mqttClient.options.clientId,
+                        protocol: window.mqttClient.options.protocol
+                    } : null
                 };
             }
             return null;
@@ -200,9 +207,11 @@ async function testAwsIoTPage() {
             console.log(`   MQTT Client state: ${JSON.stringify(mqttState)}`);
             if (!mqttState.connected) {
                 console.log('   ⚠️  MQTT client not connected - checking for connection errors...');
+            } else {
+                console.log('   ✅ MQTT client is connected');
             }
         } else {
-            console.log('   ⚠️  MQTT client not found in window object');
+            console.log('   ⚠️  MQTT client not found in window object (may still be initializing)');
         }
         
         // Wait for sensor data to arrive and verify sensor cards
@@ -331,11 +340,28 @@ async function testAwsIoTPage() {
             log.toLowerCase().includes('connect') || 
             log.toLowerCase().includes('subscribe') ||
             log.toLowerCase().includes('message') ||
-            log.toLowerCase().includes('websocket')
+            log.toLowerCase().includes('websocket') ||
+            log.includes('📨') || // MQTT message emoji
+            log.includes('🔌') || // Connection emoji
+            log.includes('✅') || // Success emoji
+            log.includes('📊')    // Data emoji
         );
         if (relevantLogs.length > 0) {
             console.log(`   📋 Relevant log messages (${relevantLogs.length}):`);
-            relevantLogs.slice(0, 5).forEach(log => console.log(`      - ${log.substring(0, 100)}`));
+            relevantLogs.slice(0, 10).forEach(log => console.log(`      - ${log.substring(0, 150)}`));
+        } else {
+            console.log('   ⚠️  No relevant MQTT log messages found');
+        }
+        
+        // Check specifically for message reception logs
+        const messageLogs = consoleLogs.filter(log => 
+            log.includes('📨') || log.includes('MQTT message received')
+        );
+        if (messageLogs.length > 0) {
+            console.log(`   📨 MQTT message logs found (${messageLogs.length}):`);
+            messageLogs.forEach(log => console.log(`      - ${log.substring(0, 200)}`));
+        } else {
+            console.log('   ⚠️  No MQTT message reception logs found');
         }
         
         // Check network requests to proxy
