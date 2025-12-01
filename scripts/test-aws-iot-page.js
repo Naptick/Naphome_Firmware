@@ -139,8 +139,9 @@ async function testAwsIoTPage() {
         await connectBtn.click();
         console.log('   ✅ Connect button clicked');
         
-        // Wait a bit for any network requests
-        await page.waitForTimeout(3000);
+        // Wait for connection to establish
+        console.log('   ⏳ Waiting for connection to establish...');
+        await page.waitForTimeout(2000);
         
         // Check for status messages
         const statusText = await statusDiv.textContent();
@@ -154,23 +155,90 @@ async function testAwsIoTPage() {
             }
         });
         
-        // Test 11: Check for data section
-        console.log('\n🧪 Test 11: Checking data display section...');
+        // Test 11: Wait for data section to become visible (indicates successful connection)
+        console.log('\n🧪 Test 11: Waiting for data section to appear...');
         const dataSection = await page.locator('#data-section');
-        const dataSectionExists = await dataSection.count() > 0;
-        const dataSectionVisible = dataSectionExists ? await dataSection.isVisible() : false;
-        console.log(`   ${dataSectionExists ? '✅' : '❌'} Data section: ${dataSectionExists ? 'Found' : 'Not found'}`);
-        console.log(`   ${dataSectionVisible ? '✅' : '⚠️ '} Data section visible: ${dataSectionVisible}`);
+        try {
+            await dataSection.waitFor({ state: 'visible', timeout: 10000 });
+            console.log('   ✅ Data section is visible (connection successful)');
+        } catch (e) {
+            const isVisible = await dataSection.isVisible();
+            console.log(`   ${isVisible ? '✅' : '⚠️ '} Data section visible: ${isVisible}`);
+        }
         
-        // Test 12: Check for sensor cards
-        console.log('\n🧪 Test 12: Checking sensor data cards...');
-        const sensorCards = await page.locator('.sensor-card').all();
-        console.log(`   Found ${sensorCards.length} sensor cards`);
+        // Test 12: Wait for sensor data to arrive and verify sensor cards
+        console.log('\n🧪 Test 12: Waiting for sensor data...');
+        console.log('   ⏳ Waiting up to 30 seconds for sensor data to arrive...');
+        
+        let sensorCards = [];
+        let messageCount = 0;
+        let lastUpdate = '';
+        let maxWaitTime = 30000; // 30 seconds
+        let waitInterval = 2000; // Check every 2 seconds
+        let waited = 0;
+        
+        while (waited < maxWaitTime) {
+            await page.waitForTimeout(waitInterval);
+            waited += waitInterval;
+            
+            sensorCards = await page.locator('.sensor-card').all();
+            const messageCountElement = await page.locator('#message-count');
+            const lastUpdateElement = await page.locator('#last-update');
+            
+            if (messageCountElement.count() > 0) {
+                messageCount = parseInt(await messageCountElement.textContent()) || 0;
+            }
+            if (lastUpdateElement.count() > 0) {
+                lastUpdate = await lastUpdateElement.textContent() || '';
+            }
+            
+            console.log(`   [${waited/1000}s] Messages: ${messageCount}, Sensor cards: ${sensorCards.length}, Last update: ${lastUpdate}`);
+            
+            if (sensorCards.length > 0 && messageCount > 0) {
+                console.log(`   ✅ Sensor data received! Found ${sensorCards.length} sensor cards after ${messageCount} message(s)`);
+                break;
+            }
+        }
+        
+        if (sensorCards.length === 0) {
+            console.log(`   ⚠️  No sensor cards found after ${maxWaitTime/1000} seconds`);
+            console.log(`   This may indicate: 1) Device is not sending data, 2) Connection issue, or 3) Data format mismatch`);
+        } else {
+            // Verify sensor card content
+            console.log('\n🧪 Test 12b: Verifying sensor card content...');
+            for (let i = 0; i < Math.min(sensorCards.length, 3); i++) {
+                const card = sensorCards[i];
+                const cardText = await card.textContent();
+                const hasValue = cardText && /\d+\.?\d*/.test(cardText); // Check for numeric values
+                console.log(`   Card ${i + 1}: ${hasValue ? '✅' : '⚠️ '} ${hasValue ? 'Contains sensor values' : 'May be empty'}`);
+                if (i === 0) {
+                    // Show first card content (truncated)
+                    const preview = cardText.substring(0, 100).replace(/\s+/g, ' ');
+                    console.log(`   Preview: ${preview}...`);
+                }
+            }
+        }
         
         // Test 13: Check for charts
         console.log('\n🧪 Test 13: Checking chart containers...');
         const chartContainers = await page.locator('canvas').all();
         console.log(`   Found ${chartContainers.length} chart canvases`);
+        
+        if (chartContainers.length > 0) {
+            console.log('   ✅ Charts initialized');
+        } else {
+            console.log('   ⚠️  No charts found (may appear after data arrives)');
+        }
+        
+        // Test 14: Verify message count increased
+        console.log('\n🧪 Test 14: Verifying message reception...');
+        console.log(`   Messages received: ${messageCount}`);
+        console.log(`   Last update: ${lastUpdate || 'Never'}`);
+        if (messageCount > 0) {
+            console.log('   ✅ Messages are being received');
+        } else {
+            console.log('   ⚠️  No messages received yet (device may not be sending data)');
+        }
         
         // Summary
         console.log('\n' + '='.repeat(60));
@@ -182,10 +250,26 @@ async function testAwsIoTPage() {
         console.log(`✅ "No Credentials Required" message displayed`);
         console.log(`✅ API Gateway URL ${urlMatches ? 'pre-filled' : 'needs manual entry'}`);
         console.log(`✅ UI elements functional`);
+        console.log(`✅ Connection established: ${statusText && statusText.includes('Connected') ? 'Yes' : 'Partial'}`);
+        console.log(`✅ Sensor data received: ${sensorCards.length > 0 ? `Yes (${sensorCards.length} cards)` : 'No'}`);
+        console.log(`✅ Messages received: ${messageCount > 0 ? `Yes (${messageCount} messages)` : 'No'}`);
+        console.log(`✅ Charts initialized: ${chartContainers.length > 0 ? `Yes (${chartContainers.length} charts)` : 'No'}`);
         
         if (consoleErrors.length > 0) {
             console.log(`\n⚠️  Console errors detected:`);
             consoleErrors.forEach(err => console.log(`   - ${err}`));
+        }
+        
+        if (sensorCards.length === 0 || messageCount === 0) {
+            console.log('\n⚠️  Note: No sensor data received during test');
+            console.log('   Possible reasons:');
+            console.log('   - Device is not currently sending telemetry data');
+            console.log('   - Device is offline or not connected to AWS IoT');
+            console.log('   - Data format may not match expected structure');
+            console.log('   - Network latency (data may arrive after test completes)');
+        } else {
+            console.log('\n✅ Sensor data verification successful!');
+            console.log('   The page is correctly receiving and displaying sensor data.');
         }
         
         console.log('\n💡 Note: Connection test completed');
