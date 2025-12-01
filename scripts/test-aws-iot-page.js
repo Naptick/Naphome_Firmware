@@ -147,11 +147,18 @@ async function testAwsIoTPage() {
         const statusText = await statusDiv.textContent();
         console.log(`   Status message: ${statusText || 'None'}`);
         
-        // Check for error messages in console
+        // Monitor console messages for debugging
+        const consoleMessages = [];
         const consoleErrors = [];
+        const consoleLogs = [];
+        
         page.on('console', msg => {
+            const text = msg.text();
+            consoleMessages.push({ type: msg.type(), text: text });
             if (msg.type() === 'error') {
-                consoleErrors.push(msg.text());
+                consoleErrors.push(text);
+            } else if (msg.type() === 'log' || msg.type() === 'info') {
+                consoleLogs.push(text);
             }
         });
         
@@ -166,8 +173,40 @@ async function testAwsIoTPage() {
             console.log(`   ${isVisible ? '✅' : '⚠️ '} Data section visible: ${isVisible}`);
         }
         
-        // Test 12: Wait for sensor data to arrive and verify sensor cards
-        console.log('\n🧪 Test 12: Waiting for sensor data...');
+        // Test 12: Verify MQTT connection and wait for sensor data
+        console.log('\n🧪 Test 12: Verifying MQTT connection state...');
+        
+        // Check connection status in the UI
+        const connStatusElement = await page.locator('#conn-status');
+        let connStatus = '';
+        if (await connStatusElement.count() > 0) {
+            connStatus = await connStatusElement.textContent() || '';
+            console.log(`   Connection status: ${connStatus}`);
+        }
+        
+        // Check if MQTT client is connected by evaluating in browser context
+        const mqttState = await page.evaluate(() => {
+            if (typeof window !== 'undefined' && window.mqttClient) {
+                return {
+                    connected: window.mqttClient.connected || false,
+                    disconnecting: window.mqttClient.disconnecting || false,
+                    reconnecting: window.mqttClient.reconnecting || false
+                };
+            }
+            return null;
+        });
+        
+        if (mqttState) {
+            console.log(`   MQTT Client state: ${JSON.stringify(mqttState)}`);
+            if (!mqttState.connected) {
+                console.log('   ⚠️  MQTT client not connected - checking for connection errors...');
+            }
+        } else {
+            console.log('   ⚠️  MQTT client not found in window object');
+        }
+        
+        // Wait for sensor data to arrive and verify sensor cards
+        console.log('\n🧪 Test 12b: Waiting for sensor data...');
         console.log('   ⏳ Waiting up to 30 seconds for sensor data to arrive...');
         
         let sensorCards = [];
@@ -176,6 +215,7 @@ async function testAwsIoTPage() {
         let maxWaitTime = 30000; // 30 seconds
         let waitInterval = 2000; // Check every 2 seconds
         let waited = 0;
+        let connectionEstablished = false;
         
         while (waited < maxWaitTime) {
             await page.waitForTimeout(waitInterval);
@@ -192,7 +232,25 @@ async function testAwsIoTPage() {
                 lastUpdate = await lastUpdateElement.textContent() || '';
             }
             
-            console.log(`   [${waited/1000}s] Messages: ${messageCount}, Sensor cards: ${sensorCards.length}, Last update: ${lastUpdate}`);
+            // Check connection status
+            if (await connStatusElement.count() > 0) {
+                connStatus = await connStatusElement.textContent() || '';
+                if (connStatus.includes('Connected') && !connectionEstablished) {
+                    connectionEstablished = true;
+                    console.log(`   ✅ Connection established at ${waited/1000}s`);
+                }
+            }
+            
+            console.log(`   [${waited/1000}s] Status: ${connStatus}, Messages: ${messageCount}, Cards: ${sensorCards.length}, Last: ${lastUpdate}`);
+            
+            // Check for MQTT messages in console logs
+            const recentLogs = consoleLogs.filter(log => 
+                log.includes('message') || log.includes('MQTT') || log.includes('subscribe') || 
+                log.includes('connect') || log.includes('data')
+            );
+            if (recentLogs.length > 0 && waited % 10000 === 0) {
+                console.log(`   Recent relevant logs: ${recentLogs.slice(-3).join('; ')}`);
+            }
             
             if (sensorCards.length > 0 && messageCount > 0) {
                 console.log(`   ✅ Sensor data received! Found ${sensorCards.length} sensor cards after ${messageCount} message(s)`);
@@ -255,9 +313,54 @@ async function testAwsIoTPage() {
         console.log(`✅ Messages received: ${messageCount > 0 ? `Yes (${messageCount} messages)` : 'No'}`);
         console.log(`✅ Charts initialized: ${chartContainers.length > 0 ? `Yes (${chartContainers.length} charts)` : 'No'}`);
         
+        // Test 15: Analyze console messages for connection issues
+        console.log('\n🧪 Test 15: Analyzing console messages...');
         if (consoleErrors.length > 0) {
-            console.log(`\n⚠️  Console errors detected:`);
-            consoleErrors.forEach(err => console.log(`   - ${err}`));
+            console.log(`   ⚠️  Console errors detected (${consoleErrors.length}):`);
+            consoleErrors.slice(0, 5).forEach(err => console.log(`      - ${err}`));
+            if (consoleErrors.length > 5) {
+                console.log(`      ... and ${consoleErrors.length - 5} more errors`);
+            }
+        } else {
+            console.log('   ✅ No console errors detected');
+        }
+        
+        // Check for relevant log messages
+        const relevantLogs = consoleLogs.filter(log => 
+            log.toLowerCase().includes('mqtt') || 
+            log.toLowerCase().includes('connect') || 
+            log.toLowerCase().includes('subscribe') ||
+            log.toLowerCase().includes('message') ||
+            log.toLowerCase().includes('websocket')
+        );
+        if (relevantLogs.length > 0) {
+            console.log(`   📋 Relevant log messages (${relevantLogs.length}):`);
+            relevantLogs.slice(0, 5).forEach(log => console.log(`      - ${log.substring(0, 100)}`));
+        }
+        
+        // Check network requests to proxy
+        console.log('\n🧪 Test 15b: Checking network requests...');
+        const networkRequests = await page.evaluate(() => {
+            if (window.performance && window.performance.getEntriesByType) {
+                return window.performance.getEntriesByType('resource')
+                    .filter(entry => entry.name.includes('execute-api') || entry.name.includes('iot'))
+                    .map(entry => ({
+                        url: entry.name,
+                        type: entry.initiatorType,
+                        duration: entry.duration,
+                        status: entry.responseStatus || 'unknown'
+                    }));
+            }
+            return [];
+        });
+        
+        if (networkRequests.length > 0) {
+            console.log(`   Found ${networkRequests.length} relevant network requests:`);
+            networkRequests.forEach(req => {
+                console.log(`      ${req.type}: ${req.url.substring(0, 80)}... (${req.duration.toFixed(0)}ms, status: ${req.status})`);
+            });
+        } else {
+            console.log('   ⚠️  No network requests to proxy detected (may be using cached connection)');
         }
         
         if (sensorCards.length === 0 || messageCount === 0) {

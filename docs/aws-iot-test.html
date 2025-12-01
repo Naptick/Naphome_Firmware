@@ -330,6 +330,8 @@
 
     <script>
         let mqttClient = null;
+        // Expose mqttClient to window for testing
+        window.mqttClient = null;
         let currentDevice = null;
         let messageCount = 0;
         let sensorData = {};
@@ -513,6 +515,8 @@
                 };
 
                 mqttClient = mqtt.connect(wsUrl, options);
+                // Expose to window for testing
+                window.mqttClient = mqttClient;
                 setupMqttHandlers(topic);
 
             } catch (error) {
@@ -524,6 +528,7 @@
             if (mqttClient) {
                 mqttClient.end();
                 mqttClient = null;
+                window.mqttClient = null;
             }
             document.getElementById('connect-btn').disabled = false;
             document.getElementById('disconnect-btn').disabled = true;
@@ -733,6 +738,8 @@
                         reconnectPeriod: 5000,
                         connectTimeout: 10000
                     });
+                    // Expose to window for testing
+                    window.mqttClient = mqttClient;
                     setupMqttHandlers(topic);
                 } else {
                     throw new Error('Proxy did not return websocketUrl. Response: ' + JSON.stringify(data));
@@ -745,11 +752,14 @@
 
         function setupMqttHandlers(topic) {
             mqttClient.on('connect', () => {
+                console.log('🔌 MQTT client connected, subscribing to:', topic);
                 showStatus(`Connected! Subscribing to ${topic}...`, 'success');
                 mqttClient.subscribe(topic, { qos: 0 }, (err) => {
                     if (err) {
+                        console.error('❌ Subscription error:', err);
                         showStatus(`Subscription error: ${err.message}`, 'error');
                     } else {
+                        console.log('✅ Successfully subscribed to:', topic);
                         showStatus(`Subscribed to ${topic}`, 'success');
                         document.getElementById('connect-btn').disabled = true;
                         document.getElementById('disconnect-btn').disabled = false;
@@ -758,6 +768,7 @@
                         document.getElementById('conn-status').textContent = 'Connected';
                         document.getElementById('conn-status').style.color = '#28a745';
                         initializeCharts();
+                        console.log('📊 Waiting for sensor data on topic:', topic);
                     }
                 });
             });
@@ -765,12 +776,14 @@
             mqttClient.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
+                    console.log('📨 MQTT message received:', { topic, dataKeys: Object.keys(data), timestamp: new Date().toISOString() });
                     processSensorData(data);
                     messageCount++;
                     document.getElementById('message-count').textContent = messageCount;
                     document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+                    console.log(`✅ Processed message #${messageCount}, sensor cards: ${document.querySelectorAll('.sensor-card').length}`);
                 } catch (error) {
-                    console.error('Error parsing message:', error);
+                    console.error('Error parsing message:', error, 'Raw message:', message.toString().substring(0, 200));
                 }
             });
 
