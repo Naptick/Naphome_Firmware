@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naphome System Architecture Diagrams</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .diagram-section {
+            margin-bottom: 60px;
+        }
+        
+        .diagram-section h2 {
+            color: #34495e;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3498db;
+            font-size: 1.8em;
+        }
+        
+        .diagram-description {
+            color: #555;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+        
+        .diagram-container {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+            overflow-x: auto;
+        }
+        
+        .diagram-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+        
+        .loading {
+            color: #7f8c8d;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            background: #fee;
+            border-radius: 4px;
+            border: 1px solid #e74c3c;
+        }
+        
+        .info-box {
+            background: #e8f4f8;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box strong {
+            color: #2c3e50;
+        }
+        
+        footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Naphome System Architecture</h1>
+        <p class="subtitle">System architecture diagrams for the Naphome IoT device</p>
+        
+        <div class="info-box">
+            <strong>About these diagrams:</strong> These diagrams illustrate the internal structure and communication flows of the Naphome device, including its connections to external systems like AWS IoT, the Naptick Server, and Spotify API.
+        </div>
+        
+        <div class="diagram-section">
+            <h2>1. Internal Block Diagram (IBD)</h2>
+            <div class="diagram-description">
+                The Internal Block Diagram shows the internal components of the Naphome device and how they connect to each other and to external systems. It includes:
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li>Internal device components (Voice Pipeline, BLE Service, MQTT Client, etc.)</li>
+                    <li>External systems (Mobile App, AWS IoT Core, Naptick Server, Spotify API)</li>
+                    <li>Communication protocols and data flows</li>
+                </ul>
+            </div>
+            <div class="diagram-container" id="ibd-container">
+                <div class="loading">Loading diagram...</div>
+            </div>
+        </div>
+        
+        <div class="diagram-section">
+            <h2>2. Sequence Diagram</h2>
+            <div class="diagram-description">
+                The Sequence Diagram illustrates the chronological flow of interactions between system components, including:
+                <ul style="margin-top: 10px; margin-left: 20px;">
+                    <li>Device initialization and WiFi setup</li>
+                    <li>Voice command processing</li>
+                    <li>Sensor data publishing</li>
+                    <li>Remote commands via AWS IoT</li>
+                    <li>Mobile app device control</li>
+                </ul>
+            </div>
+            <div class="diagram-container" id="sequence-container">
+                <div class="loading">Loading diagram...</div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Diagrams rendered using <a href="https://kroki.io" target="_blank">Kroki</a> and <a href="https://plantuml.com" target="_blank">PlantUML</a></p>
+            <p>Source: <a href="https://github.com/Naptick/Naphome_Firmware" target="_blank">Naphome_Firmware</a></p>
+        </footer>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+    <script>
+        // PlantUML diagram code
+        const ibdDiagram = `@startuml Naphome_System_IBD
+!theme plain
+skinparam componentStyle rectangle
+skinparam linetype ortho
+
+title Naphome System - Internal Block Diagram (IBD)
+
+package "Naphome Device" {
+    component [Voice Pipeline] as VoicePipeline
+    component [Wake Word Service] as WakeWord
+    component [BLE Service] as BLE
+    component [MQTT Client] as MQTT
+    component [Spotify Client] as SpotifyClient
+    component [Sensor Manager] as SensorMgr
+    component [Audio Player] as AudioPlayer
+    component [LED Controller] as LEDCtrl
+    component [Intent Router] as IntentRouter
+    component [Device State] as DeviceState
+}
+
+cloud "Mobile App" as MobileApp
+cloud "AWS IoT Core" as AWSIoT
+cloud "Naptick Server" as NaptickServer
+cloud "Spotify API" as SpotifyAPI
+
+' Internal connections
+VoicePipeline --> WakeWord : wake word\\ndetection
+VoicePipeline --> IntentRouter : voice commands
+IntentRouter --> SpotifyClient : play/pause/volume
+IntentRouter --> LEDCtrl : LED control
+IntentRouter --> DeviceState : state queries
+SensorMgr --> DeviceState : sensor data
+AudioPlayer --> DeviceState : playback state
+
+' External connections
+BLE --> MobileApp : BLE GATT\\n(WiFi setup,\\ncommands)
+MQTT --> AWSIoT : MQTT over TLS\\n(commands, telemetry)
+SensorMgr --> NaptickServer : HTTP POST\\n(sensor data)
+SpotifyClient --> SpotifyAPI : OAuth/Web API\\n(music control)
+
+' Data flows
+MQTT ..> DeviceState : publish telemetry
+MQTT ..> IntentRouter : receive commands
+BLE ..> IntentRouter : device commands
+BLE ..> SensorMgr : read sensors
+
+note right of BLE
+  BLE Service provides:
+  - WiFi configuration
+  - Device commands
+  - Sensor readings
+  - Status updates
+end note
+
+note right of MQTT
+  MQTT Topics:
+  - Commands: somnus/{device_id}/commands
+  - Telemetry: somnus/{device_id}/telemetry
+  - Logs: somnus/{device_id}/logs
+end note
+
+note right of SensorMgr
+  Sensors:
+  - SHT45 (temp/humidity)
+  - SGP40 (VOC)
+  - SCD40 (CO2)
+  - VCNL4040 (light/proximity)
+  - EC10 (PM2.5)
+end note
+
+@enduml`;
+
+        const sequenceDiagram = `@startuml Naphome_Sequence_Diagram
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam roundcorner 20
+
+title Naphome System - Communication Sequence Diagram
+
+actor "User" as User
+participant "Mobile App" as MobileApp
+participant "Naphome Device" as Device
+participant "BLE Service" as BLE
+participant "Voice Pipeline" as Voice
+participant "Intent Router" as Router
+participant "Spotify Client" as Spotify
+participant "Sensor Manager" as Sensors
+participant "MQTT Client" as MQTT
+participant "AWS IoT" as AWS
+participant "Naptick Server" as Server
+participant "Spotify API" as SpotifyAPI
+
+== Initialization ==
+Device -> BLE: Start BLE service
+Device -> MQTT: Connect to AWS IoT
+MQTT -> AWS: MQTT CONNECT (TLS)
+AWS --> MQTT: CONNACK
+MQTT -> AWS: SUBSCRIBE to commands topic
+Device -> Sensors: Initialize sensors
+
+== WiFi Setup via Mobile App ==
+User -> MobileApp: Open app, scan for device
+MobileApp -> BLE: Discover device
+BLE --> MobileApp: Device found
+MobileApp -> BLE: Connect
+BLE --> MobileApp: Connected
+MobileApp -> BLE: Send WiFi credentials\\n{"action":"CONNECT_WIFI",\\n"ssid":"...","password":"..."}
+BLE -> Device: Configure WiFi
+Device -> MQTT: Connect to AWS IoT
+MQTT -> AWS: MQTT CONNECT
+AWS --> MQTT: CONNACK
+MQTT -> AWS: SUBSCRIBE commands
+BLE --> MobileApp: "Connected to WiFi"
+
+== Voice Command Flow ==
+User -> Device: "Hey Naptick, play music"
+Voice -> Voice: Wake word detected
+Voice -> Router: Process voice command
+Router -> Spotify: Play music
+Spotify -> SpotifyAPI: OAuth token request
+SpotifyAPI --> Spotify: Access token
+Spotify -> SpotifyAPI: Start playback
+SpotifyAPI --> Spotify: Playback started
+Spotify --> Router: Playback confirmed
+Router -> Device: Update state
+Device -> MQTT: Publish state update
+MQTT -> AWS: PUBLISH telemetry
+
+== Sensor Data Publishing ==
+Device -> Sensors: Read sensor data
+Sensors --> Device: Sensor readings
+Device -> MQTT: Publish telemetry
+MQTT -> AWS: PUBLISH to telemetry topic
+Device -> Sensors: Send to Naptick Server
+Sensors -> Server: HTTP POST sensor data
+Server --> Sensors: 200 OK
+
+== Remote Command via AWS IoT ==
+User -> AWS: Publish command via AWS Console/App
+AWS -> MQTT: MQTT message on commands topic
+MQTT -> Router: Parse command
+Router -> Spotify: Change volume
+Spotify -> SpotifyAPI: Adjust volume
+SpotifyAPI --> Spotify: Volume updated
+Spotify --> Router: Confirmation
+Router -> MQTT: Publish response
+MQTT -> AWS: PUBLISH response
+
+== Mobile App Device Control ==
+User -> MobileApp: Send LED command
+MobileApp -> BLE: Write command\\n{"Action":"LED",\\n"color":"blue"}
+BLE -> Router: Route command
+Router -> Device: Execute LED command
+Device -> BLE: Notify status
+BLE --> MobileApp: Status update
+
+== Sensor Reading via BLE ==
+User -> MobileApp: Request sensor data
+MobileApp -> BLE: Read sensors command
+BLE -> Sensors: Read sensors
+Sensors --> BLE: Sensor data JSON
+BLE --> MobileApp: Sensor data
+
+@enduml`;
+
+        // Function to encode PlantUML for Kroki
+        // Kroki uses deflate compression + base64 encoding
+        function encodePlantUML(diagram) {
+            try {
+                if (typeof pako !== 'undefined') {
+                    // Use pako for deflate compression
+                    const deflated = pako.deflate(diagram, { to: 'string', level: 9 });
+                    const bytes = new Uint8Array(deflated);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_');
+                } else {
+                    // Fallback: simple base64 (less efficient but works)
+                    return btoa(unescape(encodeURIComponent(diagram)))
+                        .replace(/\+/g, '-')
+                        .replace(/\//g, '_')
+                        .replace(/=+$/, '');
+                }
+            } catch (error) {
+                console.error('Encoding error:', error);
+                return null;
+            }
+        }
+
+        // Function to load diagram using Kroki API
+        async function loadDiagram(containerId, diagramCode) {
+            const container = document.getElementById(containerId);
+            
+            try {
+                // Try POST method first (simpler, no encoding needed)
+                let response = await fetch('https://kroki.io/plantuml/svg', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain',
+                    },
+                    body: diagramCode
+                });
+                
+                if (response.ok) {
+                    const svg = await response.text();
+                    container.innerHTML = svg;
+                    return;
+                }
+                
+                // Fallback: Use GET method with encoded diagram
+                const encoded = encodePlantUML(diagramCode);
+                if (encoded) {
+                    response = await fetch(`https://kroki.io/plantuml/svg/${encoded}`);
+                    if (response.ok) {
+                        const svg = await response.text();
+                        container.innerHTML = svg;
+                        return;
+                    }
+                }
+                
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            } catch (error) {
+                console.error('Diagram loading error:', error);
+                container.innerHTML = `<div class="error">
+                    <strong>Error loading diagram:</strong> ${error.message}<br><br>
+                    <strong>Alternative viewing options:</strong><br>
+                    1. Open <a href="naphome_architecture_diagrams.puml">naphome_architecture_diagrams.puml</a> in a PlantUML viewer<br>
+                    2. Use <a href="https://kroki.io" target="_blank">Kroki.io</a> online and paste the PlantUML code<br>
+                    3. Install PlantUML locally: <code>brew install plantuml</code> (macOS) or download from <a href="http://plantuml.com/download" target="_blank">plantuml.com</a>
+                </div>`;
+            }
+        }
+
+        // Load diagrams when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDiagram('ibd-container', ibdDiagram);
+            loadDiagram('sequence-container', sequenceDiagram);
+        });
+    </script>
+</body>
+</html>

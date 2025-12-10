@@ -4,3 +4,6 @@
 [submodule "components/m5gfx"]
 	path = components/m5gfx
 	url = https://github.com/m5stack/M5GFX.git
+[submodule "components/bme68x_sensor_api"]
+	path = components/bme68x_sensor_api
+	url = https://github.com/boschsensortec/BME68x_SensorAPI.git
