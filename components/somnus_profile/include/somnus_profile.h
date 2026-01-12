@@ -19,10 +19,12 @@
 extern "C" {
 #endif
 
-/** Nordic UART-style GATT service UUIDs used by Somnus mobile apps. */
+/** GATT service UUIDs used by Somnus mobile apps. */
 #define SOMNUS_UART_SERVICE_UUID          "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-#define SOMNUS_UART_RX_CHARACTERISTIC_UUID "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-#define SOMNUS_UART_TX_CHARACTERISTIC_UUID "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+// RX characteristic (device receives data from app)
+#define SOMNUS_UART_RX_CHARACTERISTIC_UUID "b4a9a884-42ae-4e37-ace9-3dd372e49223"
+// TX characteristic (device sends data to app via notifications)
+#define SOMNUS_UART_TX_CHARACTERISTIC_UUID "1767fe69-4bd9-45dd-b95b-d2e4110e4925"
 
 /** BLE advertising local name expected by the Somnus mobile client. */
 #define SOMNUS_BLE_LOCAL_NAME "rpi-gatt-server"
@@ -32,7 +34,7 @@ extern "C" {
 #define SOMNUS_AWS_PORT     8883
 
 /** Prefix applied to the device MAC (hex, uppercase, no separators). */
-#define SOMNUS_DEVICE_ID_PREFIX "SOMNUS_"
+#define SOMNUS_DEVICE_ID_PREFIX "NAPTICK_"
 
 /**
  * @brief Compute the Somnus-formatted device ID for this ESP32.

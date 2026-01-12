@@ -10,9 +10,14 @@
 #include <strings.h>
 
 #include "cJSON.h"
-#include "esp_bt.h"
 #include "esp_err.h"
 #include "esp_log.h"
+
+// ESP32 Classic BT controller header (only exists on original ESP32)
+#ifdef CONFIG_IDF_TARGET_ESP32
+#include "esp_bt.h"
+#endif
+
 #ifdef CONFIG_BT_NIMBLE_ENABLED
 #include "esp_nimble_hci.h"
 #elif defined(CONFIG_BT_BLUEDROID_ENABLED)
@@ -679,6 +684,14 @@ static int somnus_ble_gap_event(struct ble_gap_event *event, void *arg)
             char log_msg[128];
             snprintf(log_msg, sizeof(log_msg), "Notifications %s", s_notify_enabled ? "enabled" : "disabled");
             ble_log_add(BLE_LOG_SUBSCRIBE, log_msg);
+            
+            // Automatically send WiFi scan data when notifications are enabled
+            if (s_notify_enabled) {
+                ESP_LOGI(SOMNUS_BLE_TAG, "[BLE] Triggering WiFi scan after notification subscription");
+                // Delay briefly to let the subscription complete
+                vTaskDelay(pdMS_TO_TICKS(500));
+                somnus_ble_handle_scan_action();
+            }
         } else {
             ESP_LOGD(SOMNUS_BLE_TAG, "[BLE] Subscribe event for non-TX characteristic (handle=%u)", event->subscribe.attr_handle);
         }
@@ -900,13 +913,15 @@ static void somnus_ble_handle_scan_action(void)
 
 static void somnus_ble_handle_connect_action(const cJSON *root)
 {
-    const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "ssid");
+    // App sends "wifiSsid" not "ssid"
+    const cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "wifiSsid");
     const cJSON *password = cJSON_GetObjectItemCaseSensitive(root, "password");
-    const cJSON *token = cJSON_GetObjectItemCaseSensitive(root, "user_token");
+    // App sends "token" not "user_token"
+    const cJSON *token = cJSON_GetObjectItemCaseSensitive(root, "token");
     const cJSON *is_prod = cJSON_GetObjectItemCaseSensitive(root, "is_production");
 
     if (!cJSON_IsString(ssid) || !cJSON_IsString(password) || !cJSON_IsString(token)) {
-        somnus_ble_notify("Missing ssid/password/token");
+        somnus_ble_notify("Missing wifiSsid/password/token");
         return;
     }
 
@@ -1206,11 +1221,17 @@ esp_err_t somnus_ble_start(const somnus_ble_config_t *config)
     }
 
     ESP_LOGI(SOMNUS_BLE_TAG, "Initialising NimBLE controller + host");
+    
+#ifdef CONFIG_IDF_TARGET_ESP32
+    // Only ESP32 has Classic BT memory to release. ESP32-S3 is BLE-only.
     esp_err_t err = esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
         ESP_LOGE(SOMNUS_BLE_TAG, "Failed to release Classic BT memory (%s)", esp_err_to_name(err));
         return err;
     }
+#else
+    esp_err_t err;
+#endif
 
     // Initialize NimBLE port (matches ESP-IDF reference examples)
     // Note: nimble_port_init() handles controller initialization internally

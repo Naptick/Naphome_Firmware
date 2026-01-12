@@ -1,0 +1,40 @@
+menu "Naptick UART Configuration"
+
+    config NAPTICK_UART_PORT_NUM
+        int "UART port number"
+        default 1
+        range 0 2
+        help
+            UART port number for sensor data.
+
+    config NAPTICK_UART_BAUD_RATE
+        int "UART baud rate"
+        default 9600
+        help
+            Baud rate for UART communication.
+
+    config NAPTICK_UART_TX_PIN
+        int "UART TX GPIO pin"
+        default 17
+        help
+            GPIO pin for UART TX.
+
+    config NAPTICK_UART_RX_PIN
+        int "UART RX GPIO pin"
+        default 18
+        help
+            GPIO pin for UART RX.
+
+    config NAPTICK_UART_RX_BUF_SIZE
+        int "UART RX buffer size"
+        default 2048
+        help
+            Size of UART receive buffer.
+
+    config NAPTICK_UART_TASK_STACK
+        int "UART task stack size"
+        default 4096
+        help
+            Stack size for UART receive task.
+
+endmenu

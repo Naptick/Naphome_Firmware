@@ -8,6 +8,7 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
+#include "lwip/dns.h"
 #include "sdkconfig.h"
 
 #define WIFI_CONNECTED_BIT BIT0
@@ -22,6 +23,33 @@ static esp_netif_t *s_netif;
 static bool s_started;
 static bool s_auto_connect_configured;
 static int s_retry_count;
+
+/* State callback */
+static wifi_manager_state_cb_t s_state_callback = NULL;
+static void *s_state_callback_ctx = NULL;
+
+static void set_custom_dns(void)
+{
+    esp_netif_dns_info_t dns_info;
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+
+    /* Set primary DNS to 8.8.8.8 (Google) */
+    IP4_ADDR(&dns_info.ip.u_addr.ip4, 8, 8, 8, 8);
+    dns_info.ip.type = IPADDR_TYPE_V4;
+    esp_netif_set_dns_info(netif, ESP_NETIF_DNS_MAIN, &dns_info);
+
+    /* Set secondary DNS to 8.8.4.4 (Google) */
+    IP4_ADDR(&dns_info.ip.u_addr.ip4, 8, 8, 4, 4);
+    esp_netif_set_dns_info(netif, ESP_NETIF_DNS_BACKUP, &dns_info);
+
+    ESP_LOGI(TAG, "Custom DNS set to 8.8.8.8 / 8.8.4.4");
+}
+
+void wifi_manager_set_state_callback(wifi_manager_state_cb_t callback, void *user_ctx)
+{
+    s_state_callback = callback;
+    s_state_callback_ctx = user_ctx;
+}
 
 static esp_err_t ensure_event_loop(void)
 {
@@ -51,6 +79,11 @@ static void wifi_event_handler(void *arg,
         ESP_LOGW(TAG, "Disconnected from AP (reason=%d)", disconnected ? disconnected->reason : 0);
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
 
+        /* Notify callback of disconnection */
+        if (s_state_callback) {
+            s_state_callback(false, s_state_callback_ctx);
+        }
+
         if (CONFIG_NAPHOME_WIFI_MAX_RETRY == 0 || s_retry_count < CONFIG_NAPHOME_WIFI_MAX_RETRY) {
             esp_wifi_connect();
             s_retry_count++;
@@ -64,6 +97,14 @@ static void wifi_event_handler(void *arg,
         s_retry_count = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         ESP_LOGI(TAG, "Obtained IP address: " IPSTR, IP2STR(&event->ip_info.ip));
+
+        /* Set custom DNS servers */
+        set_custom_dns();
+
+        /* Notify callback of connection */
+        if (s_state_callback) {
+            s_state_callback(true, s_state_callback_ctx);
+        }
     }
 }
 
@@ -252,5 +293,52 @@ esp_err_t wifi_manager_wait_for_connection(TickType_t ticks_to_wait)
     }
 
     return ESP_ERR_TIMEOUT;
+}
+
+esp_err_t wifi_manager_scan(wifi_ap_record_t *ap_records, uint16_t max_records, uint16_t *num_found)
+{
+    if (ap_records == NULL || num_found == NULL || max_records == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    if (!s_started) {
+        esp_err_t err = wifi_manager_start();
+        if (err != ESP_OK) {
+            return err;
+        }
+    }
+
+    ESP_LOGI(TAG, "Starting WiFi scan...");
+
+    wifi_scan_config_t scan_cfg = {
+        .show_hidden = true,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+    };
+
+    esp_err_t err = esp_wifi_scan_start(&scan_cfg, true);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    uint16_t ap_count = 0;
+    err = esp_wifi_scan_get_ap_num(&ap_count);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    if (ap_count > max_records) {
+        ap_count = max_records;
+    }
+
+    err = esp_wifi_scan_get_ap_records(&ap_count, ap_records);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    *num_found = ap_count;
+    ESP_LOGI(TAG, "WiFi scan complete, found %d networks", ap_count);
+
+    return ESP_OK;
 }
 

@@ -35,5 +35,10 @@ CONFIG_LOG_MAXIMUM_LEVEL_VERBOSE=y
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
 
+# Partition Table - Use custom partition table with larger app partitions
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="config/partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="config/partitions.csv"
+
 # Sensor Manager - Publish sensor data every 2 seconds for app monitoring
 CONFIG_SENSOR_MANAGER_PUBLISH_INTERVAL_MS=2000

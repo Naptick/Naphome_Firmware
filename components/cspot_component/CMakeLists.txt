@@ -1,5 +1,8 @@
 idf_component_register()
 
+# Disable cspot component for now - requires external repository
+return()
+
 if(NOT CONFIG_CSPOT_ENABLE)
     message(STATUS "cspot component disabled via Kconfig")
     return()

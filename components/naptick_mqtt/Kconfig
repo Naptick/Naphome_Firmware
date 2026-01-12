@@ -1,0 +1,21 @@
+menu "Naptick MQTT Configuration"
+
+    config NAPTICK_MQTT_BROKER_URI
+        string "MQTT Broker URI"
+        default "wss://api-uat.naptick.com:443/mqtt"
+        help
+            WebSocket Secure URI for the MQTT broker.
+
+    config NAPTICK_MQTT_KEEPALIVE_SEC
+        int "MQTT Keep-alive interval in seconds"
+        default 120
+        help
+            Keep-alive interval for MQTT connection.
+
+    config NAPTICK_MQTT_RECONNECT_TIMEOUT_MS
+        int "MQTT Reconnect timeout in milliseconds"
+        default 5000
+        help
+            Time to wait before attempting to reconnect.
+
+endmenu

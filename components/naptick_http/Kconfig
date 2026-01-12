@@ -1,0 +1,21 @@
+menu "Naptick HTTP Configuration"
+
+    config NAPTICK_HTTP_REGISTRATION_URL
+        string "Device registration API endpoint"
+        default "https://api-uat.naptick.com/user/user-service/app-registration"
+        help
+            URL for the device registration endpoint.
+
+    config NAPTICK_HTTP_SENSOR_UPLOAD_URL
+        string "Sensor data upload API endpoint"
+        default "https://api-uat.naptick.com/sensor-service/sensor-service/stream"
+        help
+            URL for the sensor data upload endpoint.
+
+    config NAPTICK_HTTP_TIMEOUT_MS
+        int "HTTP request timeout in milliseconds"
+        default 30000
+        help
+            Timeout for HTTP requests.
+
+endmenu
